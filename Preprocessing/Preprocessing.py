@@ -171,7 +171,8 @@ def Prepare_Model_Input_Data(hydroblocks_info):
         if hydroblocks_info['water_management']['hwu_lstock_flag']:
             wbd['files_water_use']['livestock'] = '%s/livestock.nc' % workspace
 
-    _check_model_files_exist(wbd)
+    # Dependant on the above TODO - only enter truely necessary file names
+    # _check_model_files_exist(wbd)
 
     # Create the clusters and their connections
     output, hydroblocks_info = Create_Clusters_And_Connections(
