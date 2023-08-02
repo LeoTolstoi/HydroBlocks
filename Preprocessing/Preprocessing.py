@@ -1138,8 +1138,7 @@ def Create_and_Curate_Covariates(wbd, hydroblocks_info):
     #  check if lc is a covariates, and disagregate it in classes
     if 'lc' in hydroblocks_info['hmc_parameters'][
             'intraband_clustering_covariates']:
-        for lc in np.unique(covariates['lc'][covariates['mask'].astype(
-                np.bool)]):
+        for lc in np.unique(covariates['lc'][covariates['mask'].astype(bool)]):
             if lc >= 0:
                 vnam = u'lc_%i' % lc
                 masklc = (covariates['lc'] == lc)
@@ -1164,7 +1163,7 @@ def Create_and_Curate_Covariates(wbd, hydroblocks_info):
     mask = np.copy(covariates['mask'])
     mask[mask >= 0] = 1
     mask[mask < 0] = 0
-    mask = mask.astype(np.bool)
+    mask = mask.astype(bool)
 
     #  Identify missing values
     for var in covariates:
