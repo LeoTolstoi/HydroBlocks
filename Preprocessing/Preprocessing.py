@@ -53,17 +53,20 @@ def plot_data(data, *arg_mask):
 
 
 def _check_model_files_exist(wbd):
+    # TODO fix to check only actually used files
 
     print('\nChecking whether input files exist...')
 
     flag_error = False
 
     for main_key in ['files', 'files_meteorology', 'files_water_use']:
-        for key in wbd[main_key].keys():
-            if not os.path.exists(wbd[main_key][key]):
-                flag_error = True
-                print(f'File {wbd[main_key][key]} does not exist, '
-                      f'full path: {os.path.abspath(wbd[main_key][key])}')
+
+        if main_key in wbd.keys():
+            for key in wbd[main_key].keys():
+                if not os.path.exists(wbd[main_key][key]):
+                    flag_error = True
+                    print(f'File {wbd[main_key][key]} does not exist, '
+                          f'full path: {os.path.abspath(wbd[main_key][key])}')
 
     if flag_error:
         raise Exception('One or more files do not exist, see above.')
@@ -109,6 +112,7 @@ def Prepare_Model_Input_Data(hydroblocks_info):
         'res': abs(md['resx'])
     }
 
+    # TODO ascertain that only truely used files are entered here
     wbd['files'] = {
         'WLTSMC': '%s/theta1500_ea.tif' % workspace,
         'TEXTURE_CLASS': '%s/texture_class_ea.tif' % workspace,
