@@ -18,6 +18,7 @@ from geospatialtools import gdal_tools
 import terrain_tools as terrain_tools
 
 # Visualisation
+import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 
 # Global Settings
@@ -32,11 +33,13 @@ sys.path.append('%s/../HydroBlocks/pyHWU/' % dir)
 
 # Where to output
 _flag_to_file = True
-_flag_to_screen = True  # TODO doesn't seem to work - maybe due to the cleanups directly after?
+_flag_to_screen = False
 _dir_debug = 'debug/'  # to not fill up the execution directory but keep it clean
 
 # What to output
 _flag_debug_compute_HRU_semi = True
+_flag_debug_calc_connection_matrix = True
+_flag_debug_main = False
 _debug_string = ''  # finer control what to output, assumes given substring might be in filename given
 
 
@@ -70,7 +73,8 @@ def display_data(data,
                  display_what: bool = False,
                  title: str = '',
                  fn: str = '',
-                 mask=None):
+                 mask=None,
+                 norm=None):
     """
     Outputs the provided (2d) data to screen and/or file.
 
@@ -92,19 +96,34 @@ def display_data(data,
     else:
         data = np.ma.masked_array(data, data == -9999)
 
-    fig, ax = plt.subplots(figsize=(10, 10))
-    ax.set(title=title)
+    # TODO generating the plot twice is bad, but somehow necessary...fix!
 
     if _flag_to_screen:
-        plt.imshow(data)
+        fig, ax = plt.subplots(figsize=(10, 10))
+        ax.set(title=title)
+        if norm is None:
+            plt.imshow(data)
+        else:
+            plt.imshow(data, norm=norm)
+        plt.show()
+
+        fig.clf()
+        plt.close('all')
 
     if _flag_to_file:
         os.makedirs(_dir_debug, exist_ok=True)
+
+        fig, ax = plt.subplots(figsize=(10, 10))
+        ax.set(title=title)
+        if norm is None:
+            plt.imshow(data)
+        else:
+            plt.imshow(data, norm=norm)
         plt.colorbar()
         plt.savefig(os.path.join(_dir_debug, fn))
 
-    fig.clf()
-    plt.close('all')
+        fig.clf()
+        plt.close('all')
 
     return
 
@@ -243,8 +262,8 @@ def Prepare_Model_Input_Data(hydroblocks_info):
     # Create the clusters and their connections
     output, hydroblocks_info = Create_Clusters_And_Connections(
         workspace, wbd, output, input_dir, info, hydroblocks_info)
-    # import matplotlib.pyplot as plt
-    # plt.imshow(output['hru_map']); plt.show()
+    display_data(output['hru_map'], _flag_debug_main, 'HRU Map',
+                 '02.a_HRU_map.png')
 
     # Extract the meteorological forcing
     print("Preparing the meteorology", flush=True)
@@ -930,9 +949,10 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
         #  Check for spurious data
         for v in covariates.keys():
             vtmp = covariates[v][idx]
-            if v[:3] == 'lc_': continue
+            if v[:3] == 'lc_':
+                continue
             if np.min(vtmp) == -9999:
-                exit("Spurious values in %s hru: %i" % (v, hru))
+                raise ValueError(f"Spurious values in {v} hru: {hru}")
 
         # Calculate area per hru
         OUTPUT['hru']['area'][
@@ -957,7 +977,8 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
         OUTPUT['hru']['ti'][hru] = np.nanmean(covariates['ti'][idx])
         # HAND
         OUTPUT['hru']['hand'][hru] = np.nanmean(covariates['hand'][idx])
-        if OUTPUT['hru']['hand'][hru] < 0.1: OUTPUT['hru']['hand'][hru] = 0.0
+        if OUTPUT['hru']['hand'][hru] < 0.1:
+            OUTPUT['hru']['hand'][hru] = 0.0
         # OUTPUT['hru']['hand'][hru] = np.nanmean(covariates['combined_hand_dem'][idx])
         # DEM
         OUTPUT['hru']['dem'][hru] = np.nanmean(covariates['demns'][idx])
@@ -1114,9 +1135,12 @@ def Calculate_HRU_Connections_Matrix_HMC(covariates, cluster_ids, nhru, dx,
     tile_position = HMC_info['tile_position']
     basins = HMC_info['basins']
 
-    # plot_data(tile_position)
-    # plot_data(cluster_ids)
-    # plot_data(basins)
+    display_data(tile_position, _flag_debug_calc_connection_matrix,
+                 'Tile Position', '03.01_tile_position.png')
+    display_data(cluster_ids, _flag_debug_calc_connection_matrix,
+                 'Cluster IDs', '03.01_cluster_ids.png')
+    display_data(basins, _flag_debug_calc_connection_matrix, 'Basins',
+                 '03.01_basins.png')
 
     # Define spatial resolution
     res = dx
@@ -1129,7 +1153,8 @@ def Calculate_HRU_Connections_Matrix_HMC(covariates, cluster_ids, nhru, dx,
             h1 = cluster_ids[i, j]
             b1 = basins[i, j]
             tp1 = tile_position[i, j]
-            if h1 == -9999: continue
+            if h1 == -9999:
+                continue
             # up
             if (i + 1) < cluster_ids.shape[0]:
                 h2 = cluster_ids[i + 1, j]
@@ -1171,7 +1196,8 @@ def Calculate_HRU_Connections_Matrix_HMC(covariates, cluster_ids, nhru, dx,
                     horg.append(h1)
                     hdst.append(h2)
 
-            #  Include diagonal connections. This needs to be revised: widths should be account for 8D or channel delineation should be done with 4D only.
+            # Include diagonal connections. This needs to be revised: widths should
+            # be account for 8D or channel delineation should be done with 4D only.
             # up right
             if (i + 1) < cluster_ids.shape[0] and (j +
                                                    1) < cluster_ids.shape[1]:
@@ -1214,7 +1240,7 @@ def Calculate_HRU_Connections_Matrix_HMC(covariates, cluster_ids, nhru, dx,
                     horg.append(h1)
                     hdst.append(h2)
 
-    print("HRUs connections: %i orgin %i dest" % (len(horg), len(hdst)),
+    print("      HRUs connections: %i orgin %i dest" % (len(horg), len(hdst)),
           flush=True)
     horg = np.array(horg)
     hdst = np.array(hdst)
@@ -1224,6 +1250,12 @@ def Calculate_HRU_Connections_Matrix_HMC(covariates, cluster_ids, nhru, dx,
     cmatrix = sparse.coo_matrix((np.ones(hdst.size), (horg, hdst)),
                                 shape=(nhru, nhru),
                                 dtype=np.float32)
+
+    display_data(cmatrix.toarray() + 1,
+                 _flag_debug_calc_connection_matrix,
+                 'CMatrix',
+                 '03.02_cmatrix.png',
+                 norm=colors.LogNorm())
 
     # import matplotlib.pyplot as plt
     # from matplotlib.colors import LogNorm
@@ -1471,9 +1503,6 @@ def Create_Clusters_And_Connections(workspace, wbd, output, input_dir, info,
                                                     resx)
     covariates['hand'] = hand
     hydroblocks_info['nhru'] = nhru
-
-    # display_data(hand)
-    # exit("testing stops here")
 
     # Create the netcdf file
     file_netcdf = hydroblocks_info['input_file']
