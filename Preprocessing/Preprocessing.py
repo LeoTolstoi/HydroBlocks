@@ -1492,6 +1492,11 @@ def Create_Clusters_And_Connections(workspace, wbd, output, input_dir, info,
     metadata = gdal_tools.retrieve_metadata(wbd['files']['mask'])
     resx = metadata['resx']
 
+    # Manually set the resolution [m], if so set in the settings
+    # TODO replace with an automatic method, either fully auto or given in settings (EPSG + coords)
+    if 'resolution' in hydroblocks_info.keys():
+        resx = hydroblocks_info['resolution']
+
     print("   - Creating and curating the covariates", flush=True)
     (covariates, mask) = Create_and_Curate_Covariates(wbd, hydroblocks_info)
 
