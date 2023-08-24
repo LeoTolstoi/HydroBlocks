@@ -389,6 +389,8 @@ def Prepare_Model_Input_Data(hydroblocks_info):
     # Close the file
     fp.close()
 
+    print('\n')
+
     return output
 
 
@@ -956,9 +958,10 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
                     np.ma.masked_where(cluster_ids == hru,
                                        cluster_ids,
                                        copy=True), True,
-                    f"Spurious values in {v} hru: {hru}",
+                    f"Spurious values for variable {v} in hru: {hru}",
                     'error_spurious_values.png')
-                raise ValueError(f"Spurious values in {v} hru: {hru}")
+                raise ValueError(
+                    f"Spurious values for variable {v} in hru: {hru}")
 
         # Calculate area per hru
         OUTPUT['hru']['area'][
@@ -1253,7 +1256,7 @@ def Calculate_HRU_Connections_Matrix_HMC(covariates, cluster_ids, nhru, dx,
                     horg.append(h1)
                     hdst.append(h2)
 
-    print("      HRUs connections: %i orgin %i dest" % (len(horg), len(hdst)),
+    print(f"      HRU connections: {len(horg)} orgin {len(hdst)} dest"),
           flush=True)
     horg = np.array(horg)
     hdst = np.array(hdst)
