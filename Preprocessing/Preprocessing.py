@@ -941,7 +941,7 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
     for hru in np.arange(nhru):
 
         counter += 1
-        print(f' On HRU {counter} of {nhru}')
+        # print(f' On HRU {counter} of {nhru}')
 
         # Set indices
         idx = np.where(cluster_ids == hru)
@@ -952,6 +952,12 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
             if v[:3] == 'lc_':
                 continue
             if np.min(vtmp) == -9999:
+                display_data(
+                    np.ma.masked_where(cluster_ids == hru,
+                                       cluster_ids,
+                                       copy=True), True,
+                    f"Spurious values in {v} hru: {hru}",
+                    'error_spurious_values.png')
                 raise ValueError(f"Spurious values in {v} hru: {hru}")
 
         # Calculate area per hru
