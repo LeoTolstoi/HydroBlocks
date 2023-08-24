@@ -396,7 +396,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
                                      eares):
 
     # PARAMETERS (NEED TO GO OUTSIDE)
-    eares = 30  # meters
+    # eares = 30  # meters
     area = ((np.sum(mask) * eares * eares) / (10**6))  # km2
     print(f"      Catchment area: {area:.2f} km2", flush=True)
 
@@ -993,14 +993,21 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
         tmp = covariates['lc'][idx]
         tmp = tmp[tmp >= 1]
         if len(tmp) >= 1:
-            OUTPUT['hru']['land_cover'][hru] = stats.mode(tmp)[0][0]
+            stat_m = stats.mode(tmp)[0]
+            if (len(stat_m.shape) > 0):
+                OUTPUT['hru']['land_cover'][hru] = stat_m[0][0]
+            else:
+                OUTPUT['hru']['land_cover'][hru] = stat_m
         else:
             OUTPUT['hru']['land_cover'][
                 hru] = 17  #  if there is no valid value, set to water # Noemi
 
         # Soil texture class
-        OUTPUT['hru']['soil_texture_class'][hru] = stats.mode(
-            covariates['TEXTURE_CLASS'][idx])[0][0]
+        stat_tc = stats.mode(covariates['TEXTURE_CLASS'][idx])[0]
+        if (len(stat_tc.shape) > 0):
+            OUTPUT['hru']['soil_texture_class'][hru] = stat_tc[0][0]
+        else:
+            OUTPUT['hru']['soil_texture_class'][hru] = stat_tc
 
         # Define the estimate for the model parameters
         OUTPUT['hru']['m'][hru] = np.nanmean(
@@ -1494,8 +1501,8 @@ def Create_Clusters_And_Connections(workspace, wbd, output, input_dir, info,
 
     # Manually set the resolution [m], if so set in the settings
     # TODO replace with an automatic method, either fully auto or given in settings (EPSG + coords)
-    if 'resolution' in hydroblocks_info.keys():
-        resx = hydroblocks_info['resolution']
+    if 'raster_resolution' in hydroblocks_info.keys():
+        resx = hydroblocks_info['raster_resolution']
 
     print("   - Creating and curating the covariates", flush=True)
     (covariates, mask) = Create_and_Curate_Covariates(wbd, hydroblocks_info)
