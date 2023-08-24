@@ -1256,7 +1256,7 @@ def Calculate_HRU_Connections_Matrix_HMC(covariates, cluster_ids, nhru, dx,
                     horg.append(h1)
                     hdst.append(h2)
 
-    print(f"      HRU connections: {len(horg)} orgin {len(hdst)} dest"),
+    print(f"      HRU connections: {len(horg)} orgin {len(hdst)} dest",
           flush=True)
     horg = np.array(horg)
     hdst = np.array(hdst)
