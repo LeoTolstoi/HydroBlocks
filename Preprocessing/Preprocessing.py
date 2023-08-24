@@ -1591,12 +1591,12 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
         # Compute the mapping for each hru
         for hru in np.arange(hydroblocks_info['nhru']):
             idx = OUTPUT['hru_map'] == hru
-            # print "Catch:",hydroblocks_info['icatch'], "HRU: ", mask_fine[idx].astype(np.int)
+            # print "Catch:",hydroblocks_info['icatch'], "HRU: ", mask_fine[idx].astype(np.int32)
             icells = np.unique(
                 mask_fine[idx][mask_fine[idx] != -9999.0].astype(
-                    np.int))  #  Add != -9999 for unique and bicount - Noemi
+                    np.int32))  #  Add != -9999 for unique and bicount - Noemi
             counts = np.bincount(
-                mask_fine[idx][mask_fine[idx] != -9999.0].astype(np.int))
+                mask_fine[idx][mask_fine[idx] != -9999.0].astype(np.int32))
             coords, pcts = [], []
             for icell in icells:
                 ilat = int(np.floor(icell / mask_coarse.shape[1]))
@@ -1779,9 +1779,9 @@ def Prepare_Water_Use_Semidistributed(workspace, wbd, OUTPUT, input_dir, info,
             # print "Catch:",hydroblocks_info['icatch'], "HRU: ", mask_fine[idx].astype(np.int)
             icells = np.unique(
                 mask_fine[idx][mask_fine[idx] != -9999.0].astype(
-                    np.int))  #  Add != -9999 for unique and bicount - Noemi
+                    np.int32))  #  Add != -9999 for unique and bicount - Noemi
             counts = np.bincount(
-                mask_fine[idx][mask_fine[idx] != -9999.0].astype(np.int))
+                mask_fine[idx][mask_fine[idx] != -9999.0].astype(np.int32))
             coords, pcts = [], []
             for icell in icells:
                 ilat = int(np.floor(icell / mask_coarse.shape[1]))
