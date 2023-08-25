@@ -1625,7 +1625,10 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
     # Define the mapping directory
     mapping_info = {}
     # Calculate the fine to coarse scale mapping
+    print('   Creating the fine-to-coarse mapping', flush=True)
     for data_var in wbd['files_meteorology']:
+
+        print(f'      - On data var {data_var}', flush=True)
 
         # Define the variable name
         var = data_var
@@ -1665,6 +1668,7 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
             mapping_info[var][hru] = {'pcts': pcts, 'coords': coords}
 
     # Iterate through variable creating forcing product per HRU
+    print('   Creating per HRU meteorological forcing', flush=True)
     idate = info['time_info']['startdate']
     fdate = info['time_info']['enddate']
     dt = info['time_info']['dt']
@@ -1675,18 +1679,36 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
         meteorology[data_var] = np.zeros((nt, hydroblocks_info['nhru']))
     # Load data into structured array
     for data_var in wbd['files_meteorology']:
+        print(f'      - On data var {data_var}', flush=True)
         var = data_var  # data_var.split('_')[1]
         date = idate
         file = wbd['files_meteorology'][data_var]
         fp = nc.Dataset(file)
+        if 'time' in fp.variables.keys():
+            time_var = 'time'
+        elif 't' in fp.variables.keys():
+            time_var = 't'
+        else:
+            raise KeyError('No time variable or unsupported one'
+                           '\nSupported:    _t_ or _time_'
+                           f'\nVars present: {fp.variables.keys()}')
         # fp = h5py.File(file)
 
         # Determine the time steps to retrieve
         # fidate = ' '.join(fp.variables['t'].units.split(' ')[2::])
         # dates = nc.num2date(fp.variables['t'][:],units='hours since %s' % (fidate))  #  num2date doesnt work for step of 3h.
-        nc_step = int(fp.variables['t'].units.split(' ')[0].split('h')[0])
-        nc_idate = np.array(fp.variables['t'].units.split(' ')[2].split('-'))
-        nc_nt = len(fp.variables['t'][:])
+        # nc_step = int(fp.variables[time_var].units.split(' ')[0].split('h')[0])
+        str_step = fp.variables[time_var].units
+        if str_step.startswith('hours'):
+            nc_step = int(1)
+        elif 'h' in str_step:
+            nc_step = int(str_step.split(' ')[0].split('h')[0])
+        else:
+            raise ValueError(f'Unsupported time step description: {str_step}')
+
+        nc_idate = np.array(
+            fp.variables[time_var].units.split(' ')[2].split('-'))
+        nc_nt = len(fp.variables[time_var][:])
         dates = [
             datetime.datetime(int(nc_idate[0]), int(nc_idate[1]),
                               int(nc_idate[2]))
@@ -1723,6 +1745,7 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
         grp.variables[data_var][:] = meteorology[data_var][:]
 
     # Add time information
+    print('   Adding time data', flush=True)
     dates = []
     date = idate
     while date <= fdate:
