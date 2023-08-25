@@ -8,6 +8,7 @@ import warnings
 import datetime
 import netCDF4 as nc
 import numpy as np
+import rasterio
 from scipy.interpolate import griddata
 import scipy.sparse as sparse
 import scipy.stats as stats
@@ -32,8 +33,9 @@ sys.path.append('%s/../HydroBlocks/pyHWU/' % dir)
 # Debug Settings ---------------------------------------------------------------
 
 # Where to output
-_flag_to_file = True
+_flag_to_image_file = True
 _flag_to_screen = False
+_flag_as_geotiff = True  # whether to output the graphics as geotiffs as well
 _dir_debug = 'debug/'  # to not fill up the execution directory but keep it clean
 
 # What to output
@@ -41,6 +43,9 @@ _flag_debug_compute_HRU_semi = True
 _flag_debug_calc_connection_matrix = True
 _flag_debug_main = False
 _debug_string = ''  # finer control what to output, assumes given substring might be in filename given
+
+# Support info
+_debug_geotiff_meta = None
 
 
 def _check_file_exists(filename: str):
@@ -72,7 +77,7 @@ def plot_data(data, *arg_mask):
 def display_data(data,
                  display_what: bool = False,
                  title: str = '',
-                 fn: str = '',
+                 fn_part: str = '',
                  mask=None,
                  norm=None):
     """
@@ -88,7 +93,7 @@ def display_data(data,
         return
 
     if _debug_string != '':
-        if _debug_string not in fn:
+        if _debug_string not in fn_part:
             return
 
     if mask is not None:
@@ -110,7 +115,7 @@ def display_data(data,
         fig.clf()
         plt.close('all')
 
-    if _flag_to_file:
+    if _flag_to_image_file:
         os.makedirs(_dir_debug, exist_ok=True)
 
         fig, ax = plt.subplots(figsize=(10, 10))
@@ -120,10 +125,20 @@ def display_data(data,
         else:
             plt.imshow(data, norm=norm)
         plt.colorbar()
-        plt.savefig(os.path.join(_dir_debug, fn))
+        plt.savefig(os.path.join(_dir_debug, f'{fn_part}.png'))
 
         fig.clf()
         plt.close('all')
+
+    if _flag_as_geotiff:
+        with rasterio.open(os.path.join(_dir_debug, f'{fn_part}.tif'),
+                           "w",
+                           **_debug_geotiff_meta,
+                           compress="ZSTD",
+                           predictor=2,
+                           tiled=True,
+                           bigtiff=True) as dest:
+            dest.write(data, 1)
 
     return
 
@@ -250,6 +265,18 @@ def _prepare_info_and_work_files(hydroblocks_info: dict):
     # Dependant on the above TODO - only enter truely necessary file names
     # _check_model_files_exist(wbd)
 
+    # get needed info for debug output of geotiffs
+    fn = f'{workspace}/dem_ea.tif'
+    _check_file_exists(fn)
+
+    with rasterio.open(fn) as src:
+
+        global _debug_geotiff_meta
+        _debug_geotiff_meta = src.meta.copy()
+
+    # enforce cleanup
+    gc.collect()
+
     return info, workspace, input_dir, output, icatch, wbd
 
 
@@ -263,7 +290,7 @@ def Prepare_Model_Input_Data(hydroblocks_info):
     output, hydroblocks_info = Create_Clusters_And_Connections(
         workspace, wbd, output, input_dir, info, hydroblocks_info)
     display_data(output['hru_map'], _flag_debug_main, 'HRU Map',
-                 '02.a_HRU_map.png')
+                 '02.a_HRU_map')
 
     # Extract the meteorological forcing
     print("Preparing the meteorology", flush=True)
@@ -442,7 +469,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     print("      Calculating accumulated area", flush=True)
     (area, fdir) = terrain_tools.ttf.calculate_d8_acc(demns, m2, eares)
     display_data(area, _flag_debug_compute_HRU_semi, 'Accumulated Area',
-                 '02.03_accumulated_area.png')
+                 '02.03_accumulated_area')
 
     # Calculate channel initiation points (2 parameters) -- units?
     # TODO ideally would be based on the area of the catchment with CRS auto-conversion
@@ -454,35 +481,35 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     ipoints = ((C > 200) & (area > basin_area_threshold)).astype(np.int32)
     ipoints[ipoints == 0] = -9999
     display_data(C, _flag_debug_compute_HRU_semi, 'Area / CellSize * Slope²',
-                 '02.04_C.png')
+                 '02.04_C')
     display_data(ipoints, _flag_debug_compute_HRU_semi, 'iPoints',
-                 '02.04_ipoints.png')
+                 '02.04_ipoints')
 
     # Create area for channel delineation
     (ac, fdc) = terrain_tools.ttf.calculate_d8_acc_wipoints(
         demns, m2, ipoints, eares)
     ac[ac != 0] = area[ac != 0]
     display_data(ac, _flag_debug_compute_HRU_semi, 'Area Channel',
-                 '02.03_area_channel.png')
+                 '02.03_area_channel')
     display_data(fdc[:, :, 0], _flag_debug_compute_HRU_semi,
-                 'FDC - first layer', '02.03_fdc_shape1.png')
+                 'FDC - first layer', '02.03_fdc_shape1')
     display_data(fdc[:, :, 1], _flag_debug_compute_HRU_semi,
-                 'FDC - second layer', '02.03_fdc_shape2.png')
+                 'FDC - second layer', '02.03_fdc_shape2')
 
     # Compute the channels
     print("      Defining channels", flush=True)
     channels = terrain_tools.ttf.calculate_channels_wocean(
         ac, basin_area_threshold, basin_area_threshold, fdc, m2)
     display_data(channels, _flag_debug_compute_HRU_semi, 'Channels - Whole',
-                 '02.05_channels_whole.png')
+                 '02.05_channels_whole')
     channels = np.ma.masked_array(channels, channels <= 0)
     display_data(channels, _flag_debug_compute_HRU_semi,
-                 'Channels - Extracted', '02.05_channels_extracted.png')
+                 'Channels - Extracted', '02.05_channels_extracted')
 
     # If the dem is undefined then set to undefined
     channels[dem == -9999] = -9999
     display_data(channels, _flag_debug_compute_HRU_semi, 'Channels - Masked',
-                 '02.05_channels_masked.png')
+                 '02.05_channels_masked')
 
     # Compute the basins
     print("      Defining basins", flush=True)
@@ -491,11 +518,11 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     #  Remove channel artifacts from basin delineation
     basins[(channels > 0) & (mask == 1)] = -9999
     display_data(basins, _flag_debug_compute_HRU_semi, 'Basins - Whole',
-                 '02.06_basins_whole.png')
+                 '02.06_basins_whole')
     basins = spatial_imputation(basins.astype(float), -9999.0, 'nearest',
                                 mask).astype(np.int32)
     display_data(basins, _flag_debug_compute_HRU_semi, 'Basins - Imputed',
-                 '02.06_basins_imputed.png')
+                 '02.06_basins_imputed')
 
     #  Create coarser sub-basins -- Noemi.
     # TODO This should be removed or solved with new routing implementation
@@ -514,7 +541,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     c_basins = spatial_imputation(c_basins.astype(float), -9999.0, 'nearest',
                                   mask).astype(np.int32)
     display_data(c_basins, _flag_debug_compute_HRU_semi, 'Basins - Coarse',
-                 '02.06_basins_coarse.png', mask)
+                 '02.06_basins_coarse', mask)
 
     #  Identify lakes and wetlands
     lakes = cluster_lakes(covariates, mask)
@@ -529,8 +556,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
         m = (wetlands == wetland)
         channels_w_lakes[m] = np.max(channels) + 1
     display_data(channels_w_lakes, _flag_debug_compute_HRU_semi,
-                 'Channels & Lakes & Wetlands', '02.06_channels_lakes.png',
-                 mask)
+                 'Channels & Lakes & Wetlands', '02.06_channels_lakes', mask)
 
     # Calculate the height above nearest drainage area
     print("      Computing height above nearest drainage area", flush=True)
@@ -538,7 +564,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     hand = terrain_tools.ttf.calculate_depth2channel(
         channels_w_lakes, basins, fdir, demns)  #  dem should be normalized
     display_data(hand, _flag_debug_compute_HRU_semi, 'Hand - Depth 2 Channel',
-                 '02.07_hand_depth2channel.png')
+                 '02.07_hand_depth2channel')
     hand[hand < 0] = -9999.0
     hand[channels > 0] = 0  #  Noemi
     hand[channels_w_lakes > 0] = 0  #  Noemi
@@ -548,7 +574,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     hand[covariates['lc'] == 11] = 0.0
     hand = spatial_imputation(hand, -9999.0, 'nearest', mask)
     display_data(hand, _flag_debug_compute_HRU_semi, 'Hand - Imputed',
-                 '02.07_hand_imputed.png', mask)
+                 '02.07_hand_imputed', mask)
 
     #  Calculate coarse hand
     # c_hand = terrain_tools.ttf.calculate_depth2channel(c_channels,c_basins,fdir,demns) #  dem should be normalized
@@ -603,7 +629,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     c_basins[mask != 1] = -9999
     ti[mask != 1] = -9999
     display_data(mask, _flag_debug_compute_HRU_semi, 'Mask - Check Form',
-                 '02.08_mask_form.png')
+                 '02.08_mask_form')
 
     covariates['dem'] = dem
     covariates['demns'] = demns
@@ -650,8 +676,8 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     print("sub-basins mean area %.2f km2" % (np.mean(sub_basins_areas)),flush=True)
     '''
     # plot_data(basin_clusters,mask)
-    # output_data(basin_clusters, fn='_check_basins_before_removal_clusters.png')
-    # output_data(hand, fn='_check_basins_before_removal_hand.png')
+    # output_data(basin_clusters, fn='_check_basins_before_removal_clusters')
+    # output_data(hand, fn='_check_basins_before_removal_hand')
 
     #  remove tiny basins clusters
     ubcs = np.unique(basin_clusters)
@@ -671,7 +697,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
 
     # sanity check
     if len(basin_clusters[basin_clusters != -9999]) < 1:
-        display_data(basin_clusters, fn='_error_nan_in_basin_clusters.png')
+        display_data(basin_clusters, fn_part='_error_nan_in_basin_clusters')
         raise ValueError(
             'Error_basin_clustering: empty values for basin_clusters:'
             f' {hydroblocks_info["icatch"]} overall')
@@ -688,10 +714,10 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     (tiles, new_hand,
      tile_position) = terrain_tools.create_basin_tiles(basin_clusters, hand,
                                                        demns, basins, dh)
-    display_data(tiles, _flag_debug_compute_HRU_semi, 'Tiles',
-                 '02.11_tiles.png', mask)
+    display_data(tiles, _flag_debug_compute_HRU_semi, 'Tiles', '02.11_tiles',
+                 mask)
     display_data(new_hand, _flag_debug_compute_HRU_semi, 'New Hand',
-                 '02.11_new_hand.png', mask)
+                 '02.11_new_hand', mask)
 
     print('      Number of total elevation bands (all sub-basins): %i' %
           (np.unique(tiles[tiles != -9999]).size),
@@ -755,7 +781,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
         new_hrus[hrus == oclust] = nclust
     hrus = np.copy(new_hrus)
     nhru = np.unique(hrus[hrus != -9999]).size
-    display_data(hrus, _flag_debug_compute_HRU_semi, 'HRUs', '02.13_hrus.png',
+    display_data(hrus, _flag_debug_compute_HRU_semi, 'HRUs', '02.13_hrus',
                  mask)
 
     ngrids = np.sum(mask == 1)
@@ -771,7 +797,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     tile_position = add_buffer_to_water_and_wetlands(tile_position, covariates,
                                                      mask)
     display_data(tile_position, _flag_debug_compute_HRU_semi, 'Tile Position',
-                 '02.14_tile_position.png')
+                 '02.14_tile_position')
 
     # Construct HMC info for creating connections matrix
     HMC_info = {}
@@ -959,7 +985,7 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
                                        cluster_ids,
                                        copy=True), True,
                     f"Spurious values for variable {v} in hru: {hru}",
-                    'error_spurious_values.png')
+                    'error_spurious_values')
                 raise ValueError(
                     f"Spurious values for variable {v} in hru: {hru}")
 
@@ -1152,11 +1178,11 @@ def Calculate_HRU_Connections_Matrix_HMC(covariates, cluster_ids, nhru, dx,
     basins = HMC_info['basins']
 
     display_data(tile_position, _flag_debug_calc_connection_matrix,
-                 'Tile Position', '03.01_tile_position.png')
+                 'Tile Position', '03.01_tile_position')
     display_data(cluster_ids, _flag_debug_calc_connection_matrix,
-                 'Cluster IDs', '03.01_cluster_ids.png')
+                 'Cluster IDs', '03.01_cluster_ids')
     display_data(basins, _flag_debug_calc_connection_matrix, 'Basins',
-                 '03.01_basins.png')
+                 '03.01_basins')
 
     # Define spatial resolution
     res = dx
@@ -1270,7 +1296,7 @@ def Calculate_HRU_Connections_Matrix_HMC(covariates, cluster_ids, nhru, dx,
     display_data(cmatrix.toarray() + 1,
                  _flag_debug_calc_connection_matrix,
                  'CMatrix',
-                 '03.02_cmatrix.png',
+                 '03.02_cmatrix',
                  norm=colors.LogNorm())
 
     # import matplotlib.pyplot as plt
