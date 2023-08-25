@@ -421,6 +421,15 @@ def Prepare_Model_Input_Data(hydroblocks_info):
     return output
 
 
+def _replace_missing_vals(data: np.array, mask: np.array, fill_val: float):
+
+    filled = data.copy()
+    filled[filled == -9999] = int(fill_val)
+    filled[np.invert(mask)] = -9999
+
+    return filled
+
+
 def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
                                      eares):
 
@@ -470,6 +479,13 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     (area, fdir) = terrain_tools.ttf.calculate_d8_acc(demns, m2, eares)
     display_data(area, _flag_debug_compute_HRU_semi, 'Accumulated Area',
                  '02.03_accumulated_area')
+    display_data(area, _flag_debug_compute_HRU_semi, 'Flow Direction',
+                 '02.03_flow_direction')
+
+    # fix possible missing values of the area array being within the compute mask
+    area = _replace_missing_vals(area, mask, eares * eares)
+    display_data(area, _flag_debug_compute_HRU_semi, 'Accumulated Area',
+                 '02.03_accumulated_area_fixed')
 
     # Calculate channel initiation points (2 parameters) -- units?
     # TODO ideally would be based on the area of the catchment with CRS auto-conversion
