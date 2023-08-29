@@ -8,6 +8,7 @@ import warnings
 import datetime
 import netCDF4 as nc
 import numpy as np
+import pandas as pd
 import rasterio
 from scipy.interpolate import griddata
 import scipy.sparse as sparse
@@ -42,6 +43,7 @@ _dir_debug = 'debug/'  # to not fill up the execution directory but keep it clea
 # What to output
 _flag_debug_compute_HRU_semi = True
 _flag_debug_calc_connection_matrix = True
+_flag_debug_prep_meteo_semi = True
 _flag_debug_main = False
 _debug_string = ''  # finer control what to output, assumes given substring might be in filename given
 
@@ -1624,6 +1626,34 @@ def Create_Clusters_And_Connections(workspace, wbd, output, input_dir, info,
     return OUTPUT, hydroblocks_info
 
 
+def _debug_mapping_info_overview(mapping_info):
+
+    if not _flag_debug_prep_meteo_semi:
+        return
+
+    dict_data = {}
+    counter = 0
+    for var in mapping_info.keys():
+        for hru in mapping_info[var].keys():
+            pcts = mapping_info[var][hru]['pcts']
+            coords = mapping_info[var][hru]['coords']
+            dict_data[counter] = [
+                var, hru,
+                len(pcts),
+                len(coords[0]),
+                len(coords[1]), pcts, coords
+            ]
+            counter += 1
+
+    df = pd.DataFrame.from_dict(
+        dict_data,
+        orient='index',
+        columns=['var', 'hru', 'npts', 'nlat', 'nlon', 'pcts', 'coords'])
+    df.to_csv(os.path.join(_dir_debug, 'mapping_info.csv'))
+
+    return
+
+
 def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
                                         info, hydroblocks_info):
 
@@ -1671,6 +1701,8 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
                       hru,
                       flush=True)
             mapping_info[var][hru] = {'pcts': pcts, 'coords': coords}
+
+    _debug_mapping_info_overview(mapping_info)
 
     # Iterate through variable creating forcing product per HRU
     print('   Creating per HRU meteorological forcing', flush=True)
