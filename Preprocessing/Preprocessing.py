@@ -21,6 +21,7 @@ import terrain_tools as terrain_tools
 # Visualisation
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 # Global Settings
 warnings.filterwarnings('ignore')
@@ -304,6 +305,7 @@ def Prepare_Model_Input_Data(hydroblocks_info):
                                           info, hydroblocks_info)
 
     # Write out the files to the netcdf file
+    print("Exporting the data", flush=True)
     fp = hydroblocks_info['input_fp']
     data = output
 
@@ -982,161 +984,164 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
 
     # Metadata
     counter = 0
-    for hru in np.arange(nhru):
+    with tqdm(total=nhru) as t:
+        for hru in np.arange(nhru):
 
-        counter += 1
-        # print(f' On HRU {counter} of {nhru}')
+            counter += 1
+            # print(f' On HRU {counter} of {nhru}')
 
-        # Set indices
-        idx = np.where(cluster_ids == hru)
+            # Set indices
+            idx = np.where(cluster_ids == hru)
 
-        #  Check for spurious data
-        for v in covariates.keys():
-            vtmp = covariates[v][idx]
-            if v[:3] == 'lc_':
-                continue
-            if np.min(vtmp) == -9999:
-                display_data(
-                    np.ma.masked_where(cluster_ids == hru,
-                                       cluster_ids,
-                                       copy=True), True,
-                    f"Spurious values for variable {v} in hru: {hru}",
-                    'error_spurious_values')
-                raise ValueError(
-                    f"Spurious values for variable {v} in hru: {hru}")
+            #  Check for spurious data
+            for v in covariates.keys():
+                vtmp = covariates[v][idx]
+                if v[:3] == 'lc_':
+                    continue
+                if np.min(vtmp) == -9999:
+                    display_data(
+                        np.ma.masked_where(cluster_ids == hru,
+                                           cluster_ids,
+                                           copy=True), True,
+                        f"Spurious values for variable {v} in hru: {hru}",
+                        'error_spurious_values')
+                    raise ValueError(
+                        f"Spurious values for variable {v} in hru: {hru}")
 
-        # Calculate area per hru
-        OUTPUT['hru']['area'][
-            hru] = metadata['resx']**2 * idx[0].size  #  units?
-        # Calculate area percentage per hru
-        OUTPUT['hru']['area_pct'][hru] = 100 * OUTPUT['hru']['area'][hru] / (
-            metadata['resx']**2 * mask[mask].size)
-        # Soil properties
-        for var in [
-                'BB', 'DRYSMC', 'F11', 'MAXSMC', 'REFSMC', 'SATPSI', 'SATDK',
-                'SATDW', 'WLTSMC', 'QTZ', 'clay', 'sand', 'silt'
-        ]:
-            if var in ['SATDK', 'SATDW']:
-                # print('HMEAN:',var,covariates[var][idx][covariates[var][idx] <= 0 ])
-                OUTPUT['hru'][var][hru] = stats.mstats.hmean(
-                    covariates[var][idx]) / 3600.0 / 1000.0  # mm/hr -> m/s
+            # Calculate area per hru
+            OUTPUT['hru']['area'][
+                hru] = metadata['resx']**2 * idx[0].size  #  units?
+            # Calculate area percentage per hru
+            OUTPUT['hru']['area_pct'][hru] = 100 * OUTPUT['hru']['area'][
+                hru] / (metadata['resx']**2 * mask[mask].size)
+            # Soil properties
+            for var in [
+                    'BB', 'DRYSMC', 'F11', 'MAXSMC', 'REFSMC', 'SATPSI',
+                    'SATDK', 'SATDW', 'WLTSMC', 'QTZ', 'clay', 'sand', 'silt'
+            ]:
+                if var in ['SATDK', 'SATDW']:
+                    # print('HMEAN:',var,covariates[var][idx][covariates[var][idx] <= 0 ])
+                    OUTPUT['hru'][var][hru] = stats.mstats.hmean(
+                        covariates[var][idx]) / 3600.0 / 1000.0  # mm/hr -> m/s
+                else:
+                    OUTPUT['hru'][var][hru] = np.mean(covariates[var][idx])
+            # Average Slope
+            OUTPUT['hru']['slope'][hru] = np.nanmean(covariates['slope'][idx])
+            # Topographic index
+            OUTPUT['hru']['ti'][hru] = np.nanmean(covariates['ti'][idx])
+            # HAND
+            OUTPUT['hru']['hand'][hru] = np.nanmean(covariates['hand'][idx])
+            if OUTPUT['hru']['hand'][hru] < 0.1:
+                OUTPUT['hru']['hand'][hru] = 0.0
+            # OUTPUT['hru']['hand'][hru] = np.nanmean(covariates['combined_hand_dem'][idx])
+            # DEM
+            OUTPUT['hru']['dem'][hru] = np.nanmean(covariates['demns'][idx])
+            # if OUTPUT['hru']['hand'][hru] == 0.0: OUTPUT['hru']['dem'][hru] = np.nanmin(covariates['demns'][idx])
+
+            # Average Catchment Area
+            OUTPUT['hru']['carea'][hru] = np.nanmean(covariates['carea'][idx])
+            # Channel?
+            # OUTPUT['hru']['channel'][hru] = stats.mode(covariates['channels'][idx])[0]
+
+            # Land cover type
+            tmp = covariates['lc'][idx]
+            tmp = tmp[tmp >= 1]
+            if len(tmp) >= 1:
+                stat_m = stats.mode(tmp)[0]
+                if (len(stat_m.shape) > 0):
+                    OUTPUT['hru']['land_cover'][hru] = stat_m[0][0]
+                else:
+                    OUTPUT['hru']['land_cover'][hru] = stat_m
             else:
-                OUTPUT['hru'][var][hru] = np.mean(covariates[var][idx])
-        # Average Slope
-        OUTPUT['hru']['slope'][hru] = np.nanmean(covariates['slope'][idx])
-        # Topographic index
-        OUTPUT['hru']['ti'][hru] = np.nanmean(covariates['ti'][idx])
-        # HAND
-        OUTPUT['hru']['hand'][hru] = np.nanmean(covariates['hand'][idx])
-        if OUTPUT['hru']['hand'][hru] < 0.1:
-            OUTPUT['hru']['hand'][hru] = 0.0
-        # OUTPUT['hru']['hand'][hru] = np.nanmean(covariates['combined_hand_dem'][idx])
-        # DEM
-        OUTPUT['hru']['dem'][hru] = np.nanmean(covariates['demns'][idx])
-        # if OUTPUT['hru']['hand'][hru] == 0.0: OUTPUT['hru']['dem'][hru] = np.nanmin(covariates['demns'][idx])
+                OUTPUT['hru']['land_cover'][
+                    hru] = 17  #  if there is no valid value, set to water # Noemi
 
-        # Average Catchment Area
-        OUTPUT['hru']['carea'][hru] = np.nanmean(covariates['carea'][idx])
-        # Channel?
-        # OUTPUT['hru']['channel'][hru] = stats.mode(covariates['channels'][idx])[0]
-
-        # Land cover type
-        tmp = covariates['lc'][idx]
-        tmp = tmp[tmp >= 1]
-        if len(tmp) >= 1:
-            stat_m = stats.mode(tmp)[0]
-            if (len(stat_m.shape) > 0):
-                OUTPUT['hru']['land_cover'][hru] = stat_m[0][0]
+            # Soil texture class
+            stat_tc = stats.mode(covariates['TEXTURE_CLASS'][idx])[0]
+            if (len(stat_tc.shape) > 0):
+                OUTPUT['hru']['soil_texture_class'][hru] = stat_tc[0][0]
             else:
-                OUTPUT['hru']['land_cover'][hru] = stat_m
-        else:
-            OUTPUT['hru']['land_cover'][
-                hru] = 17  #  if there is no valid value, set to water # Noemi
+                OUTPUT['hru']['soil_texture_class'][hru] = stat_tc
 
-        # Soil texture class
-        stat_tc = stats.mode(covariates['TEXTURE_CLASS'][idx])[0]
-        if (len(stat_tc.shape) > 0):
-            OUTPUT['hru']['soil_texture_class'][hru] = stat_tc[0][0]
-        else:
-            OUTPUT['hru']['soil_texture_class'][hru] = stat_tc
+            # Define the estimate for the model parameters
+            OUTPUT['hru']['m'][hru] = np.nanmean(
+                covariates['dbedrock'][idx]
+            )  # 0.1 # Form of the exponential decline in conductivity (0.01-1.0)
 
-        # Define the estimate for the model parameters
-        OUTPUT['hru']['m'][hru] = np.nanmean(
-            covariates['dbedrock'][idx]
-        )  # 0.1 # Form of the exponential decline in conductivity (0.01-1.0)
+            # f11, qtz = get_f11_and_qtz_from_soil_type(OUTPUT['hru']['soil_texture_class'][hru])
+            # if np.isnan(f11) == False: OUTPUT['hru']['F11'][hru] = f11
+            # if np.isnan(qtz) == False: OUTPUT['hru']['QTZ'][hru] = qtz
 
-        # f11, qtz = get_f11_and_qtz_from_soil_type(OUTPUT['hru']['soil_texture_class'][hru])
-        # if np.isnan(f11) == False: OUTPUT['hru']['F11'][hru] = f11
-        # if np.isnan(qtz) == False: OUTPUT['hru']['QTZ'][hru] = qtz
+            #  Limit parameters to possible range
+            # if OUTPUT['hru']['BB'][hru] > 11.55: OUTPUT['hru']['BB'][hru] = 11.55
+            # if OUTPUT['hru']['BB'][hru] < 2.79: OUTPUT['hru']['BB'][hru] = 2.79
+            # if OUTPUT['hru']['DRYSMC'][hru] > 0.138: OUTPUT['hru']['DRYSMC'][hru] = 0.138
+            # if OUTPUT['hru']['SATPSI'][hru] > 0.617: OUTPUT['hru']['SATPSI'][hru] = 0.617
+            # if OUTPUT['hru']['SATPSI'][hru] < 0.036: OUTPUT['hru']['SATPSI'][hru] = 0.036
+            # if OUTPUT['hru']['SATDK'][hru] < 9.74e-7: OUTPUT['hru']['SATDK'][hru] = 9.74e-7
+            # if OUTPUT['hru']['SATDK'][hru] > 4.66e-5: OUTPUT['hru']['SATDK'][hru] = 4.66e-5
+            # if OUTPUT['hru']['SATDW'][hru] < 0.608e-6: OUTPUT['hru']['SATDW'][hru] = 0.608e-6
+            # if OUTPUT['hru']['SATDW'][hru] > 0.239e-4: OUTPUT['hru']['SATDW'][hru] = 0.239e-4
 
-        #  Limit parameters to possible range
-        # if OUTPUT['hru']['BB'][hru] > 11.55: OUTPUT['hru']['BB'][hru] = 11.55
-        # if OUTPUT['hru']['BB'][hru] < 2.79: OUTPUT['hru']['BB'][hru] = 2.79
-        # if OUTPUT['hru']['DRYSMC'][hru] > 0.138: OUTPUT['hru']['DRYSMC'][hru] = 0.138
-        # if OUTPUT['hru']['SATPSI'][hru] > 0.617: OUTPUT['hru']['SATPSI'][hru] = 0.617
-        # if OUTPUT['hru']['SATPSI'][hru] < 0.036: OUTPUT['hru']['SATPSI'][hru] = 0.036
-        # if OUTPUT['hru']['SATDK'][hru] < 9.74e-7: OUTPUT['hru']['SATDK'][hru] = 9.74e-7
-        # if OUTPUT['hru']['SATDK'][hru] > 4.66e-5: OUTPUT['hru']['SATDK'][hru] = 4.66e-5
-        # if OUTPUT['hru']['SATDW'][hru] < 0.608e-6: OUTPUT['hru']['SATDW'][hru] = 0.608e-6
-        # if OUTPUT['hru']['SATDW'][hru] > 0.239e-4: OUTPUT['hru']['SATDW'][hru] = 0.239e-4
+            #  Recalcualte the soil paramters based on the HRU mean values - Noemi
+            # lamda_campbell = (np.log(OUTPUT['hru']['REFSMC'][hru])-np.log(OUTPUT['hru']['WLTSMC'][hru]))/(np.log(1500.)-np.log(33.))
+            # psisat_campbell = 33*np.power(OUTPUT['hru']['REFSMC'][hru]/OUTPUT['hru']['MAXSMC'][hru], 1/lamda_campbell) # kPa
+            # OUTPUT['hru']['BB'][hru] = 1./lamda_campbell
+            # OUTPUT['hru']['SATPSI'][hru] = psisat_campbell*(10./100) #  KPa --> cm --> m
+            # OUTPUT['hru']['SATDW'][hru] = OUTPUT['hru']['BB'][hru] * OUTPUT['hru']['SATDK'][hru] * OUTPUT['hru']['SATPSI'][hru] / OUTPUT['hru']['MAXSMC'][hru] #  m2/hr
 
-        #  Recalcualte the soil paramters based on the HRU mean values - Noemi
-        # lamda_campbell = (np.log(OUTPUT['hru']['REFSMC'][hru])-np.log(OUTPUT['hru']['WLTSMC'][hru]))/(np.log(1500.)-np.log(33.))
-        # psisat_campbell = 33*np.power(OUTPUT['hru']['REFSMC'][hru]/OUTPUT['hru']['MAXSMC'][hru], 1/lamda_campbell) # kPa
-        # OUTPUT['hru']['BB'][hru] = 1./lamda_campbell
-        # OUTPUT['hru']['SATPSI'][hru] = psisat_campbell*(10./100) #  KPa --> cm --> m
-        # OUTPUT['hru']['SATDW'][hru] = OUTPUT['hru']['BB'][hru] * OUTPUT['hru']['SATDK'][hru] * OUTPUT['hru']['SATPSI'][hru] / OUTPUT['hru']['MAXSMC'][hru] #  m2/hr
+            #  Define soil types over urban areas
+            if OUTPUT['hru']['land_cover'][hru] == 13:
+                #  if there is urban areas in the river channel, set to grassland
+                # if OUTPUT['hru']['hand'][hru] == 0 :
+                #   OUTPUT['hru']['land_cover'][hru] == 10
+                #   # else, set soil to bedrock
+                # else:
+                OUTPUT['hru']['BB'][hru] = 2.79
+                OUTPUT['hru']['MAXSMC'][hru] = 0.20
+                OUTPUT['hru']['REFSMC'][hru] = 0.10
+                OUTPUT['hru']['WLTSMC'][hru] = 0.006
+                OUTPUT['hru']['DRYSMC'][hru] = 0.004
+                OUTPUT['hru']['SATPSI'][hru] = 0.069
+                # OUTPUT['hru']['SATDW'][hru] = 0.136e-3  #  bedrock
+                # OUTPUT['hru']['SATDK'][hru] = 1.41e-4   #  bedrock
+                # OUTPUT['hru']['QTZ'][hru] = 0.07
+                # OUTPUT['hru']['soil_texture_class'][hru] = 15
 
-        #  Define soil types over urban areas
-        if OUTPUT['hru']['land_cover'][hru] == 13:
-            #  if there is urban areas in the river channel, set to grassland
-            # if OUTPUT['hru']['hand'][hru] == 0 :
-            #   OUTPUT['hru']['land_cover'][hru] == 10
-            #   # else, set soil to bedrock
-            # else:
-            OUTPUT['hru']['BB'][hru] = 2.79
-            OUTPUT['hru']['MAXSMC'][hru] = 0.20
-            OUTPUT['hru']['REFSMC'][hru] = 0.10
-            OUTPUT['hru']['WLTSMC'][hru] = 0.006
-            OUTPUT['hru']['DRYSMC'][hru] = 0.004
-            OUTPUT['hru']['SATPSI'][hru] = 0.069
-            # OUTPUT['hru']['SATDW'][hru] = 0.136e-3  #  bedrock
-            # OUTPUT['hru']['SATDK'][hru] = 1.41e-4   #  bedrock
-            # OUTPUT['hru']['QTZ'][hru] = 0.07
-            # OUTPUT['hru']['soil_texture_class'][hru] = 15
-
-        #  Water Management Variables
-        if hydroblocks_info['water_management']['hwu_agric_flag'] == True:
-            #  Irrigation: 1 Irrigated, 2 paddy crop
-            irrig_vec = np.copy(covariates['irrig_land'][idx].flatten())
-            nii = np.nansum(irrig_vec == 1)
-            npi = np.nansum(irrig_vec == 2)
-            ttt = np.nansum(irrig_vec >= 0)
-            iratio = 0
-            if ttt > 0:
-                iratio = float((nii + npi)) / ttt
-                if iratio >= 0.50 and nii > npi:
-                    OUTPUT['hru']['irrig_land'][hru] = 1
-                elif iratio >= 0.50 and nii < npi:
-                    OUTPUT['hru']['irrig_land'][hru] = 2
+            #  Water Management Variables
+            if hydroblocks_info['water_management']['hwu_agric_flag'] == True:
+                #  Irrigation: 1 Irrigated, 2 paddy crop
+                irrig_vec = np.copy(covariates['irrig_land'][idx].flatten())
+                nii = np.nansum(irrig_vec == 1)
+                npi = np.nansum(irrig_vec == 2)
+                ttt = np.nansum(irrig_vec >= 0)
+                iratio = 0
+                if ttt > 0:
+                    iratio = float((nii + npi)) / ttt
+                    if iratio >= 0.50 and nii > npi:
+                        OUTPUT['hru']['irrig_land'][hru] = 1
+                    elif iratio >= 0.50 and nii < npi:
+                        OUTPUT['hru']['irrig_land'][hru] = 2
+                    else:
+                        OUTPUT['hru']['irrig_land'][hru] = 0
                 else:
                     OUTPUT['hru']['irrig_land'][hru] = 0
-            else:
-                OUTPUT['hru']['irrig_land'][hru] = 0
 
-            #  Crop Calendar
-            OUTPUT['hru']['start_growing_season'][hru] = int(
-                stats.mode(covariates['start_growing_season'][idx])[0][0])
-            OUTPUT['hru']['end_growing_season'][hru] = int(
-                stats.mode(covariates['end_growing_season'][idx])[0][0])
+                #  Crop Calendar
+                OUTPUT['hru']['start_growing_season'][hru] = int(
+                    stats.mode(covariates['start_growing_season'][idx])[0][0])
+                OUTPUT['hru']['end_growing_season'][hru] = int(
+                    stats.mode(covariates['end_growing_season'][idx])[0][0])
 
-        if hydroblocks_info['water_management']['hwu_flag'] == True:
-            # HRU Centroids for water management
-            OUTPUT['hru']['centroid_lons'][hru] = np.nanmean(
-                covariates['lons'][idx])
-            OUTPUT['hru']['centroid_lats'][hru] = np.nanmean(
-                covariates['lats'][idx])
-            # print OUTPUT['hru']['centroid_lons']
+            if hydroblocks_info['water_management']['hwu_flag'] == True:
+                # HRU Centroids for water management
+                OUTPUT['hru']['centroid_lons'][hru] = np.nanmean(
+                    covariates['lons'][idx])
+                OUTPUT['hru']['centroid_lats'][hru] = np.nanmean(
+                    covariates['lats'][idx])
+                # print OUTPUT['hru']['centroid_lons']
+
+            t.update()
 
     # if hydroblocks_info['water_management']['hwu_flag'] == True:
     # for hru in np.arange(nhru):
@@ -1628,7 +1633,7 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
     print('   Creating the fine-to-coarse mapping', flush=True)
     for data_var in wbd['files_meteorology']:
 
-        print(f'      - On data var {data_var}', flush=True)
+        print(f'      - On variable {data_var}', flush=True)
 
         # Define the variable name
         var = data_var
@@ -1726,8 +1731,16 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
         fp.close()
 
         # Assing to hrus
+        print(len(mapping_info[var]))
+        exit('testing')
         for hru in mapping_info[var]:
-            # print( hru, var, data.shape, hru,mapping_info[var][hru]['pcts'], mapping_info[var][hru]['coords'], flush=True)
+            # print(hru,
+            #       var,
+            #       data.shape,
+            #       hru,
+            #       mapping_info[var][hru]['pcts'],
+            #       mapping_info[var][hru]['coords'],
+            #       flush=True)
             pcts = mapping_info[var][hru]['pcts']
             coords = mapping_info[var][hru]['coords']
             coords[0][coords[0] >= data.shape[1]] = data.shape[1] - 1
@@ -1736,7 +1749,17 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
             # m1 = tmp < -999
             # m2 = tmp > -999
             tmp = pcts * tmp
-            meteorology[data_var][:, hru] = np.sum(tmp, axis=1)
+            try:
+                meteorology[data_var][:, hru] = np.sum(tmp, axis=1)
+            except ValueError:
+                raise ValueError(
+                    'Error in meteorology assignment'
+                    '\nError in assignment (tmp, pcts - types, shapes):'
+                    f'{type(tmp)} {type(pcts)} {tmp.shape} {pcts.shape}'
+                    '\nBackground Info:'
+                    f'{hru} {var} {data.shape} {hru}'
+                    f'{mapping_info[var][hru]["pcts"]}'
+                    f'{mapping_info[var][hru]["coords"]}')
             # print data_var,np.unique(meteorology[data_var][:,:])
 
         # Write the meteorology to the netcdf file (single chunk for now...)
