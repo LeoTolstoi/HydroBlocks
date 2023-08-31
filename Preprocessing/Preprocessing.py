@@ -365,13 +365,15 @@ def export_model(hydroblocks_info, workspace, output, icatch, wbd):
     os.system(
         'gdalwarp -overwrite -tr %.16f %.16f -dstnodata %f -t_srs \'+proj=longlat \' -te %.16f %.16f %.16f %.16f %s %s >> %s 2>&1'
         % (res, res, metadata['nodata'], minlon, minlat, maxlon, maxlat,
-           file_ca, file_ll, log))  #  Noemi
+           file_ca, file_ll, log))  # Noemi
     tmp = gdal_tools.read_raster(file_ll)
     nhru_latlon = np.unique(tmp[tmp != -9999]).size
     if nhru_ea != nhru_latlon:
-        exit(
-            'Catch: %s - nhru in hru_mapping_ea.tif (%s) and hru_mapping_latlon.tif (%s) do not match -- check resampling'
-            % (str(icatch), nhru_ea, nhru_latlon))
+        raise ValueError(
+            'Non-congruent numbers of HRU: '
+            f'nhru in hru_mapping_ea.tif ({nhru_ea}) and '
+            f'hru_mapping_latlon.tif ({nhru_latlon}) do not match'
+            '\nCheck resampling as well as input masks for _ea and _latlon')
 
     # Write a map for the catchment id
     file_icatch = '%s/icatch_latlon.tif' % workspace
@@ -536,7 +538,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
                  '02.05_channels_masked')
 
     # Compute the basins
-    print("      Defining basins", flush=True)
+    print("        Defining basins", flush=True)
     basins = terrain_tools.ttf.delineate_basins(channels, m2, fdir)
 
     #  Remove channel artifacts from basin delineation
@@ -1566,6 +1568,9 @@ def Create_Clusters_And_Connections(workspace, wbd, output, input_dir, info,
     if 'raster_resolution' in hydroblocks_info.keys():
         resx = hydroblocks_info['raster_resolution']
 
+    if resx < 1.0:
+        print(f'\nWarning: Cellsize extracted ({resx}) is less than 1m.\n')
+
     print("   - Creating and curating the covariates", flush=True)
     (covariates, mask) = Create_and_Curate_Covariates(wbd, hydroblocks_info)
 
@@ -1764,12 +1769,6 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
             raise ValueError((
                 'Error in meteorology assignment: input file has less than two timesteps'
                 f'\nFile: {file}'))
-
-        if nc_step != (fp.variables[time_var][1] - fp.variables[time_var][0]):
-            raise ValueError(
-                f'Error in meteorology assignment: time step {nc_step} '
-                f'does not match first data step {fp.variables[time_var][1] - fp.variables[time_var][0]}'
-            )
 
         if int(nc_idate[0]) <= 1800:
             print(
