@@ -296,18 +296,26 @@ def Prepare_Model_Input_Data(hydroblocks_info):
                  '02.a_HRU_map')
 
     # Extract the meteorological forcing
-    print("Preparing the meteorology", flush=True)
+    print("\nPreparing the meteorology", flush=True)
     Prepare_Meteorology_Semidistributed(workspace, wbd, output, input_dir,
                                         info, hydroblocks_info)
 
     # Extract the water use demands
-    print("Preparing the water use", flush=True)
     if hydroblocks_info['water_management']['hwu_flag'] == True:
+        print("\nPreparing the water use", flush=True)
         Prepare_Water_Use_Semidistributed(workspace, wbd, output, input_dir,
                                           info, hydroblocks_info)
 
     # Write out the files to the netcdf file
-    print("Exporting the data", flush=True)
+    print("\nExporting the data", flush=True)
+    export_model(hydroblocks_info, workspace, output, icatch, wbd)
+
+    print('\n')
+
+    return output
+
+
+def export_model(hydroblocks_info, workspace, output, icatch, wbd):
     fp = hydroblocks_info['input_fp']
     data = output
 
@@ -420,10 +428,6 @@ def Prepare_Model_Input_Data(hydroblocks_info):
     # Close the file
     fp.close()
 
-    print('\n')
-
-    return output
-
 
 def _replace_missing_vals(data: np.array, mask: np.array, fill_val: float):
 
@@ -440,7 +444,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     # PARAMETERS (NEED TO GO OUTSIDE)
     # eares = 30  # meters
     area = ((np.sum(mask) * eares * eares) / (10**6))  # km2
-    print(f"      Catchment area: {area:.2f} km2", flush=True)
+    print(f"        Catchment area: {area:.2f} km2", flush=True)
 
     # Define the parameters for the hierarchical multivariate clustering
     ncatchments = hydroblocks_info['hmc_parameters'][
@@ -453,7 +457,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     # Pre-process DEM
     dem = covariates['dem']
     # Remove pits in dem
-    print("      Removing pits in dem", flush=True)
+    print("        Removing pits in dem", flush=True)
 
     #  normalize DEM -- Noemi
     invalid_dem = dem == -9999
@@ -469,7 +473,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     covariates['demns'] = demns
 
     # Calculate slope and aspect
-    print("      Calculating slope and aspect", flush=True)
+    print("        Calculating slope and aspect", flush=True)
     res_array = np.copy(demns)
     res_array[:] = eares
     (slope, aspect) = terrain_tools.ttf.calculate_slope_and_aspect(
@@ -479,7 +483,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     m2 = np.copy(demns)
     m2[:] = 1
 
-    print("      Calculating accumulated area", flush=True)
+    print("        Calculating accumulated area", flush=True)
     (area, fdir) = terrain_tools.ttf.calculate_d8_acc(demns, m2, eares)
     display_data(area, _flag_debug_compute_HRU_semi, 'Accumulated Area',
                  '02.03_accumulated_area')
@@ -517,7 +521,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
                  'FDC - second layer', '02.03_fdc_shape2')
 
     # Compute the channels
-    print("      Defining channels", flush=True)
+    print("        Defining channels", flush=True)
     channels = terrain_tools.ttf.calculate_channels_wocean(
         ac, basin_area_threshold, basin_area_threshold, fdc, m2)
     display_data(channels, _flag_debug_compute_HRU_semi, 'Channels - Whole',
@@ -579,7 +583,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
                  'Channels & Lakes & Wetlands', '02.06_channels_lakes', mask)
 
     # Calculate the height above nearest drainage area
-    print("      Computing height above nearest drainage area", flush=True)
+    print("        Computing height above nearest drainage area", flush=True)
     # hand = terrain_tools.ttf.calculate_depth2channel(channels,basins,fdir,demns) #  dem should be normalized
     hand = terrain_tools.ttf.calculate_depth2channel(
         channels_w_lakes, basins, fdir, demns)  #  dem should be normalized
@@ -632,7 +636,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
         # if len(tmp) > 0: c_basins[m] = np.max(c_basins)+1
 
     # Calculate topographic index
-    print("      Computing topographic index")
+    print("        Computing topographic index")
     ti = np.copy(area)
     m = (area != -9999) & (slope != -9999) & (slope != 0.0)
     ti[m] = np.log(area[m] / eares / slope[m])
@@ -660,13 +664,13 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     covariates['ti'] = ti
 
     # Calculate the subbasin properties
-    print("      Assembling the subbasin properties")
+    print("        Assembling the subbasin properties")
     hp_in = terrain_tools.calculate_basin_properties_updated(
         basins, eares, covariates,
         hydroblocks_info['hmc_parameters']['subbasin_clustering_covariates'])
 
     # Clustering the basins
-    print("      Clustering the basins")
+    print("        Clustering the basins")
     # Assemble input data
     cvs = {}
     for var in hydroblocks_info['hmc_parameters'][
@@ -726,7 +730,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
         # This might be to problems with the land use class numbers given
         # for input
 
-    print('      Number of sub-basins clusters: %i' %
+    print('        Number of sub-basins clusters: %i' %
           (np.unique(basin_clusters[basin_clusters != -9999]).size),
           flush=True)
 
@@ -739,7 +743,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     display_data(new_hand, _flag_debug_compute_HRU_semi, 'New Hand',
                  '02.11_new_hand', mask)
 
-    print('      Number of total elevation bands (all sub-basins): %i' %
+    print('        Number of total elevation bands (all sub-basins): %i' %
           (np.unique(tiles[tiles != -9999]).size),
           flush=True)
 
@@ -772,7 +776,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
         }
 
     # print("Clustering the height bands into %d clusters" % nclusters)
-    print('      Number of clusters per elevation band: %i' % nclusters,
+    print('        Number of clusters per elevation band: %i' % nclusters,
           flush=True)
     hrus = terrain_tools.create_hrus_hydroblocks(basin_clusters, tiles,
                                                  channels, cvs, nclusters)
@@ -782,7 +786,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     #  Add lakes as independent HRUs -- Noemi
     count = np.max(hrus) + 1
     ulakes = np.unique(lakes[lakes != -9999])
-    print('      Including additional %i water bodies clusters...' %
+    print('        Including additional %i water bodies clusters...' %
           len(ulakes),
           flush=True)
     for lake in ulakes:
@@ -805,9 +809,9 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
                  mask)
 
     ngrids = np.sum(mask == 1)
-    print('      Number of total clustes (HRUs): %i' % nhru, flush=True)
+    print('        Number of total clustes (HRUs): %i' % nhru, flush=True)
     print(
-        '      Statistics - grids:%i  HRUs:%i  grids_to_hrus_ratio:%i  delta-dem:%im '
+        '        Statistics - grids:%i  HRUs:%i  grids_to_hrus_ratio:%i  delta-dem:%im '
         % (ngrids, nhru, float(ngrids) / float(nhru), delta_dem),
         flush=True)
 
@@ -1305,7 +1309,7 @@ def Calculate_HRU_Connections_Matrix_HMC(covariates, cluster_ids, nhru, dx,
                     horg.append(h1)
                     hdst.append(h2)
 
-    print(f"      HRU connections: {len(horg)} orgin {len(hdst)} dest",
+    print(f"        HRU connections: {len(horg)} orgin {len(hdst)} dest",
           flush=True)
     horg = np.array(horg)
     hdst = np.array(hdst)
@@ -1702,6 +1706,8 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
                       flush=True)
             mapping_info[var][hru] = {'pcts': pcts, 'coords': coords}
 
+        gc.collect()
+
     _debug_mapping_info_overview(mapping_info)
 
     # Iterate through variable creating forcing product per HRU
@@ -1710,13 +1716,15 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
     fdate = info['time_info']['enddate']
     dt = info['time_info']['dt']
     nt = int(3600 * 24 / dt) * ((fdate - idate).days + 1)
+
     # Create structured array
     meteorology = {}
     for data_var in wbd['files_meteorology']:
         meteorology[data_var] = np.zeros((nt, hydroblocks_info['nhru']))
+
     # Load data into structured array
     for data_var in wbd['files_meteorology']:
-        print(f'      - On data var {data_var}', flush=True)
+        print(f'      - On variable {data_var}', flush=True)
         var = data_var  # data_var.split('_')[1]
         date = idate
         file = wbd['files_meteorology'][data_var]
@@ -1743,8 +1751,31 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
         else:
             raise ValueError(f'Unsupported time step description: {str_step}')
 
-        nc_idate = np.array(
-            fp.variables[time_var].units.split(' ')[2].split('-'))
+        if 'since' == fp.variables[time_var].units.split(' ')[1]:
+            nc_idate = np.array(
+                fp.variables[time_var].units.split(' ')[2].split('-'))
+        else:
+            raise ValueError(
+                f'Unsupported time determination from: {fp.variables[time_var].units}'
+            )
+
+        # checks
+        if len(fp.variables[time_var]) < 2:
+            raise ValueError((
+                'Error in meteorology assignment: input file has less than two timesteps'
+                f'\nFile: {file}'))
+
+        if nc_step != (fp.variables[time_var][1] - fp.variables[time_var][0]):
+            raise ValueError(
+                f'Error in meteorology assignment: time step {nc_step} '
+                f'does not match first data step {fp.variables[time_var][1] - fp.variables[time_var][0]}'
+            )
+
+        if int(nc_idate[0]) <= 1800:
+            print(
+                '\nWarning: unusual start date for meteorology data, before 1800: ',
+                nc_idate, '\n')
+
         nc_nt = len(fp.variables[time_var][:])
         dates = [
             datetime.datetime(int(nc_idate[0]), int(nc_idate[1]),
@@ -1755,16 +1786,17 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
         dates = np.array(dates)
         startdate = info['time_info']['startdate']
         enddate = info['time_info']['enddate']
-        # print(startdate,enddate)
         mask_dates = (dates >= startdate) & (dates <= enddate)
-        # print(mask_dates)
-        # print(fp.variables[var][:,:,:].shape)
         data = np.ma.getdata(fp.variables[var][mask_dates, :, :])
         fp.close()
 
+        if data.shape[0] == 0:
+            raise Exception(
+                f'Error in meteorology assignment: no valid time span for variable {var}'
+                f'\nStart: {startdate} End: {enddate}'
+                f'\nData Start: {dates[0]} End: {dates[-1]}')
+
         # Assing to hrus
-        print(len(mapping_info[var]))
-        exit('testing')
         for hru in mapping_info[var]:
             # print(hru,
             #       var,
@@ -1773,6 +1805,7 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
             #       mapping_info[var][hru]['pcts'],
             #       mapping_info[var][hru]['coords'],
             #       flush=True)
+            # exit()
             pcts = mapping_info[var][hru]['pcts']
             coords = mapping_info[var][hru]['coords']
             coords[0][coords[0] >= data.shape[1]] = data.shape[1] - 1
@@ -1788,16 +1821,17 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
                     'Error in meteorology assignment'
                     '\nError in assignment (tmp, pcts - types, shapes):'
                     f'{type(tmp)} {type(pcts)} {tmp.shape} {pcts.shape}'
-                    '\nBackground Info:'
-                    f'{hru} {var} {data.shape} {hru}'
-                    f'{mapping_info[var][hru]["pcts"]}'
-                    f'{mapping_info[var][hru]["coords"]}')
+                    '\nOverview Info:'
+                    f'\nHRU: {hru} Var: {var} DataShape: {data.shape}'
+                    f'\nPCTS: {mapping_info[var][hru]["pcts"]}'
+                    f'\nCoords: {mapping_info[var][hru]["coords"]}')
             # print data_var,np.unique(meteorology[data_var][:,:])
 
         # Write the meteorology to the netcdf file (single chunk for now...)
         grp = hydroblocks_info['input_fp'].groups['meteorology']
         grp.createVariable(var, 'f4', ('time', 'hru'))  # ,zlib=True)
         grp.variables[data_var][:] = meteorology[data_var][:]
+        gc.collect()
 
     # Add time information
     print('   Adding time data', flush=True)
