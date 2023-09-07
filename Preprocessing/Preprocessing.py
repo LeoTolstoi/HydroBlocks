@@ -13,6 +13,7 @@ import rasterio
 from scipy.interpolate import griddata
 import scipy.sparse as sparse
 import scipy.stats as stats
+from scipy.stats import find_repeats
 
 from cv2 import dilate, getStructuringElement, MORPH_RECT
 
@@ -255,7 +256,7 @@ def _prepare_info_and_work_files(hydroblocks_info: dict):
         'spfh': '%s/spfh.nc' % workspace,
     }
 
-    if hydroblocks_info['water_management']['hwu_flag'] == True:
+    if hydroblocks_info['water_management']['hwu_flag'] is True:
         wbd['files_water_use'] = {}
         if hydroblocks_info['water_management']['hwu_domest_flag']:
             wbd['files_water_use']['domestic'] = '%s/domestic.nc' % workspace
@@ -301,7 +302,7 @@ def Prepare_Model_Input_Data(hydroblocks_info):
                                         info, hydroblocks_info)
 
     # Extract the water use demands
-    if hydroblocks_info['water_management']['hwu_flag'] == True:
+    if hydroblocks_info['water_management']['hwu_flag'] is True:
         print("\nPreparing the water use", flush=True)
         Prepare_Water_Use_Semidistributed(workspace, wbd, output, input_dir,
                                           info, hydroblocks_info)
@@ -323,7 +324,8 @@ def export_model(hydroblocks_info, workspace, output, icatch, wbd):
     grp = fp.createGroup('metadata')
     grp.latitude = (wbd['bbox']['minlat'] + wbd['bbox']['maxlat']) / 2
     lon = (wbd['bbox']['minlon'] + wbd['bbox']['maxlon']) / 2
-    if lon < 0: lon += 360
+    if lon < 0:
+        lon += 360
     grp.longitude = lon
     metadata = gdal_tools.retrieve_metadata(wbd['files']['mask'])
     grp.dx = metadata['resx']
@@ -359,8 +361,8 @@ def export_model(hydroblocks_info, workspace, output, icatch, wbd):
     maxlat = wbd['bbox']['maxlat']
     maxlon = wbd['bbox']['maxlon']
     log = '%s/log.txt' % workspace
-    lon_0 = (maxlon + minlon) / 2.0
-    lat_0 = (maxlat + minlat) / 2.0
+    # lon_0 = (maxlon + minlon) / 2.0
+    # lat_0 = (maxlat + minlat) / 2.0
     # os.system('gdalwarp -tr %f %f -dstnodata %f -r mode -t_srs \'+proj=longlat +lon_0=%f +lat_0=%f +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +no_defs \' -te %.16f %.16f %.16f %.16f %s %s >> %s 2>&1' % (res,res,metadata['nodata'],lon_0,lat_0,minlon,minlat,maxlon,maxlat,file_ca,file_ll,log))
     os.system(
         'gdalwarp -overwrite -tr %.16f %.16f -dstnodata %f -t_srs \'+proj=longlat \' -te %.16f %.16f %.16f %.16f %s %s >> %s 2>&1'
@@ -386,7 +388,7 @@ def export_model(hydroblocks_info, workspace, output, icatch, wbd):
     # Write the connection matrices
     # width
     wmatrix = output['cmatrix']['width']
-    nconnections = wmatrix.data.size
+    # nconnections = wmatrix.data.size
     grp = fp.createGroup('wmatrix')
     grp.createDimension('connections_columns', wmatrix.indices.size)
     grp.createDimension('connections_rows', wmatrix.indptr.size)
@@ -461,7 +463,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     # Remove pits in dem
     print("        Removing pits in dem", flush=True)
 
-    #  normalize DEM -- Noemi
+    # normalize DEM -- Noemi
     invalid_dem = dem == -9999
     min_dem = np.min(dem[~invalid_dem])
     dem = dem - min_dem
@@ -500,10 +502,10 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     # Calculate channel initiation points (2 parameters) -- units?
     # TODO ideally would be based on the area of the catchment with CRS auto-conversion
     C = area / eares * slope**2
-    # basin_area_threshold = 0.5 * (10**6)  #  0.1km2,  1km2 = 10**6 m2
+    # basin_area_threshold = 0.5 * (10**6)  # 0.1km2,  1km2 = 10**6 m2
     basin_area_threshold = 0.5 / (734 / (np.sum(mask) * eares * eares))
 
-    # ipoints = ((C > 200) & (area > basin_area_threshold)).astype(np.int32)  #  orig
+    # ipoints = ((C > 200) & (area > basin_area_threshold)).astype(np.int32)  # orig
     ipoints = ((C > 200) & (area > basin_area_threshold)).astype(np.int32)
     ipoints[ipoints == 0] = -9999
     display_data(C, _flag_debug_compute_HRU_semi, 'Area / CellSize * Slope²',
@@ -541,7 +543,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     print("        Defining basins", flush=True)
     basins = terrain_tools.ttf.delineate_basins(channels, m2, fdir)
 
-    #  Remove channel artifacts from basin delineation
+    # Remove channel artifacts from basin delineation
     basins[(channels > 0) & (mask == 1)] = -9999
     display_data(basins, _flag_debug_compute_HRU_semi, 'Basins - Whole',
                  '02.06_basins_whole')
@@ -550,9 +552,9 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     display_data(basins, _flag_debug_compute_HRU_semi, 'Basins - Imputed',
                  '02.06_basins_imputed')
 
-    #  Create coarser sub-basins -- Noemi.
+    # Create coarser sub-basins -- Noemi.
     # TODO This should be removed or solved with new routing implementation
-    coarse_basins_threshold = 25 * (10**6)  #  25 km2
+    coarse_basins_threshold = 25 * (10**6)  # 25 km2
     c_ipoints = ((C > 200) & (area > coarse_basins_threshold)).astype(np.int32)
     c_ipoints[c_ipoints == 0] = -9999
     (c_ac, c_fdc) = terrain_tools.ttf.calculate_d8_acc_wipoints(
@@ -569,11 +571,11 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     display_data(c_basins, _flag_debug_compute_HRU_semi, 'Basins - Coarse',
                  '02.06_basins_coarse', mask)
 
-    #  Identify lakes and wetlands
+    # Identify lakes and wetlands
     lakes = cluster_lakes(covariates, mask)
     wetlands = cluster_wetlands(covariates, mask)
 
-    #  set channels with lakes and wetlands
+    # set channels with lakes and wetlands
     channels_w_lakes = np.copy(channels)
     for lake in np.unique(lakes[lakes != -9999]):
         m = (lakes == lake)
@@ -586,14 +588,14 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
 
     # Calculate the height above nearest drainage area
     print("        Computing height above nearest drainage area", flush=True)
-    # hand = terrain_tools.ttf.calculate_depth2channel(channels,basins,fdir,demns) #  dem should be normalized
+    # hand = terrain_tools.ttf.calculate_depth2channel(channels,basins,fdir,demns) # dem should be normalized
     hand = terrain_tools.ttf.calculate_depth2channel(
-        channels_w_lakes, basins, fdir, demns)  #  dem should be normalized
+        channels_w_lakes, basins, fdir, demns)  # dem should be normalized
     display_data(hand, _flag_debug_compute_HRU_semi, 'Hand - Depth 2 Channel',
                  '02.07_hand_depth2channel')
     hand[hand < 0] = -9999.0
-    hand[channels > 0] = 0  #  Noemi
-    hand[channels_w_lakes > 0] = 0  #  Noemi
+    hand[channels > 0] = 0  # Noemi
+    hand[channels_w_lakes > 0] = 0  # Noemi
     hand[lakes > 0] = 0.0
     hand[wetlands > 0] = 0.0
     hand[covariates['lc'] == 17] = 0.0
@@ -602,36 +604,39 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     display_data(hand, _flag_debug_compute_HRU_semi, 'Hand - Imputed',
                  '02.07_hand_imputed', mask)
 
-    #  Calculate coarse hand
-    # c_hand = terrain_tools.ttf.calculate_depth2channel(c_channels,c_basins,fdir,demns) #  dem should be normalized
+    # Calculate coarse hand
+    # c_hand = terrain_tools.ttf.calculate_depth2channel(c_channels,c_basins,fdir,demns) # dem should be normalized
     # c_hand[ c_hand < 0 ] = -9999.0
     # c_hand[ c_channels > 0 ] = 0.0
     # c_hand = spatial_imputation(c_hand,-9999.0,'nearest',mask)
     # plot_data(c_hand,mask)
 
-    #  calculate smooth coarse hand
+    # calculate smooth coarse hand
     # smooth_c_hand = np.copy(c_hand)
-    # filter_size = int(np.around(250./eares,0)) #  1000m
+    # filter_size = int(np.around(250./eares,0)) # 1000m
     # kernel = np.ones((filter_size,filter_size), np.float32)/float(filter_size*filter_size)
     # smooth_c_hand = filter2D(smooth_c_hand,-1,kernel)
     # smooth_c_hand[c_channels > 0 ] = 0.0
     # c_hand = np.copy(smooth_c_hand)
     # plot_data(smooth_c_hand,mask)
 
-    #  Identify large flat lands
+    # Identify large flat lands
     flatlands = cluster_flatlands(slope, mask)
-    #  set hand at the flat lands
+    # set hand at the flat lands
     for flat in np.unique(flatlands[flatlands != -9999]):
         m = (flatlands == flat)
         tmp = hand[m][hand[m] != -9999]
-        if len(tmp) > 0: hand[m] = np.min(tmp)
+        if len(tmp) > 0:
+            hand[m] = np.min(tmp)
 
-    #  Set hand, dem, demns at the lakes
+    # Set hand, dem, demns at the lakes
     for lake in np.unique(lakes[lakes != -9999]):
         tmp = dem[m][dem[m] != -9999]
-        if len(tmp) > 0: dem[m] = np.min(tmp)
+        if len(tmp) > 0:
+            dem[m] = np.min(tmp)
         tmp = demns[m][demns[m] != -9999]
-        if len(tmp) > 0: demns[m] = np.min(tmp)
+        if len(tmp) > 0:
+            demns[m] = np.min(tmp)
         # tmp = basins[m][basins[m]!=-9999]
         # if len(tmp) > 0: basins[m] = np.max(basins)+1
         # tmp = c_basins[m][c_basins[m]!=-9999]
@@ -645,7 +650,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     ti[slope == 0] = 15.0
     ti[slope < 0.0001] = 15.0
 
-    #  cleanup
+    # cleanup
     slope[mask != 1] = -9999
     aspect[mask != 1] = -9999
     area[mask != 1] = -9999
@@ -688,15 +693,15 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     (basin_clusters, ) = terrain_tools.cluster_basins_updated(
         basins, cvs, hp_in, ncatchments)
 
-    #  Noemi -- This will enforce 1 cluster per 1 sub-basin, removing the clusters of watersheds
+    # Noemi -- This will enforce 1 cluster per 1 sub-basin, removing the clusters of watersheds
     # basin_clusters = renumber(c_basins).astype(np.int32)
     # plot_data(basin_clusters,mask)
     '''
-    #  print each sub-basin area
+    # print each sub-basin area
     ubcs = np.unique(basin_clusters[basin_clusters!=-9999])
     sub_basins_areas =[]
     for ubc in ubcs:
-        ubc_size = float(eares*eares*np.sum( (basin_clusters == ubc) & (mask ==1) ))/float(10**6) #  km2
+        ubc_size = float(eares*eares*np.sum( (basin_clusters == ubc) & (mask ==1) ))/float(10**6) # km2
         sub_basins_areas.append(ubc_size)
         print("sub-basins %i area %.2f km2" % (ubc,ubc_size),flush=True)
     print("sub-basins mean area %.2f km2" % (np.mean(sub_basins_areas)),flush=True)
@@ -705,7 +710,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     # output_data(basin_clusters, fn='_check_basins_before_removal_clusters')
     # output_data(hand, fn='_check_basins_before_removal_hand')
 
-    #  remove tiny basins clusters
+    # remove tiny basins clusters
     ubcs = np.unique(basin_clusters)
     ubcs = ubcs[ubcs != -9999]
     for ubc in ubcs:
@@ -749,7 +754,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
           (np.unique(tiles[tiles != -9999]).size),
           flush=True)
 
-    #  De-normalize DEM
+    # De-normalize DEM
     dem = dem + min_dem
     demns = demns + min_dem
     covariates['dem'] = dem
@@ -763,7 +768,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
         disag = [i for i in covariates.keys() if 'lc_' in i]
         intraband_clust_vars = intraband_clust_vars + disag
 
-    #  where slope is flat, set aspect -4 to avoid noise at the flat lands
+    # where slope is flat, set aspect -4 to avoid noise at the flat lands
     flats = (covariates['slope'] < 10. / 100.) & (covariates['slope'] != -9999)
     covariates['aspect'][flats] = -3.14 * 5
 
@@ -785,7 +790,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     hrus[hrus != -9999] = hrus[hrus != -9999] - 1
     nhru = np.unique(hrus[hrus != -9999]).size
 
-    #  Add lakes as independent HRUs -- Noemi
+    # Add lakes as independent HRUs -- Noemi
     count = np.max(hrus) + 1
     ulakes = np.unique(lakes[lakes != -9999])
     print('        Including additional %i water bodies clusters...' %
@@ -797,10 +802,10 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
         count = count + 1
         new_hand[m] = 0.0
     # for wetland in np.unique(wetlands[wetlands!=-9999]):
-    #   m = wetlands == wetland
-    #   hrus[m] = count
-    #   count = count+1
-    #   new_hand[m] = 0.0
+    #  m = wetlands == wetland
+    #  hrus[m] = count
+    #  count = count+1
+    #  new_hand[m] = 0.0
     unic = np.unique(hrus[hrus != -9999])
     new_hrus = np.ones(hrus.shape) * (-9999)
     for nclust, oclust in enumerate(unic, 0):
@@ -817,7 +822,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
         % (ngrids, nhru, float(ngrids) / float(nhru), delta_dem),
         flush=True)
 
-    #  add a buffer at the channels and lakes in tile position, this helps channels connectivity at the valleys
+    # add a buffer at the channels and lakes in tile position, this helps channels connectivity at the valleys
     tile_position = add_buffer_to_channels(tile_position, channels, new_hand,
                                            mask)
     tile_position = add_buffer_to_water_and_wetlands(tile_position, covariates,
@@ -829,7 +834,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     HMC_info = {}
     # HMC_info['basins'] = basins
     HMC_info[
-        'basins'] = c_basins  #  Noemi -- use coarse scale sub-basins or set ridge connection to true
+        'basins'] = c_basins  # Noemi -- use coarse scale sub-basins or set ridge connection to true
     HMC_info['tile_position'] = tile_position
 
     return (hrus.astype(np.float32), nhru, new_hand, HMC_info, covariates)
@@ -862,7 +867,8 @@ def renumber(data):
     new = np.zeros(data.shape, dtype=int, order='F')
     new[:] = -9999
     ub = np.unique(data)
-    if -9999 in ub: ub = ub[1:]
+    if -9999 in ub:
+        ub = ub[1:]
     fill = np.arange(len(ub))
     for i, b in zip(fill, ub):
         new[data == b] = i
@@ -875,7 +881,8 @@ def split_subbasins(basins, mask):
 
     basins[mask == 0] = -9999
     ub = np.unique(basins)
-    if -9999 in ub: ub = ub[1:]
+    if -9999 in ub:
+        ub = ub[1:]
 
     from sklearn.cluster import DBSCAN
     for b in ub:
@@ -883,7 +890,8 @@ def split_subbasins(basins, mask):
         X = list(zip(*pos))
         clustering = DBSCAN(eps=1.0).fit(X)
         unic = np.unique(clustering.labels_)
-        if -1 in unic: unic = unic[1:]
+        if -1 in unic:
+            unic = unic[1:]
         if len(unic) > 0:
             increment = 1. / float(len(unic))
             for i, c in enumerate(unic):
@@ -901,8 +909,9 @@ def cluster_lakes(covariates, mask):
     pos = np.where(lc == 17)
     clust_map = np.ones(mask.shape) * (-9999)
 
-    #  If there are at least 10 grids
-    if len(pos[0]) < 10.: return clust_map
+    # If there are at least 10 grids
+    if len(pos[0]) < 10.:
+        return clust_map
 
     X = list(zip(*pos))
     from sklearn.cluster import DBSCAN
@@ -925,8 +934,9 @@ def cluster_wetlands(covariates, mask):
     pos = np.where(lc == 11)
     clust_map = np.ones(mask.shape) * (-9999)
 
-    #  If there are at least 10 grids
-    if len(pos[0]) < 10.: return clust_map
+    # If there are at least 10 grids
+    if len(pos[0]) < 10.:
+        return clust_map
 
     X = list(zip(*pos))
     from sklearn.cluster import DBSCAN
@@ -947,7 +957,8 @@ def cluster_flatlands(slope, mask):
     slope[mask != 1] = -9999
     pos = np.where(((slope >= 0) & (slope < 0.0005)))
     clust_map = np.ones(mask.shape) * (-9999)
-    if len(pos[0]) < 20: return clust_map
+    if len(pos[0]) < 20:
+        return clust_map
 
     X = list(zip(*pos))
     from sklearn.cluster import DBSCAN
@@ -958,7 +969,7 @@ def cluster_flatlands(slope, mask):
     # print(unic)
     for c in unic:
         m = clustering.labels_ == c
-        if np.sum(m) > 100:  #  1000 grids ~ 1km2
+        if np.sum(m) > 100:  # 1000 grids ~ 1km2
             ml, mc = pos[0][m], pos[1][m]
             clust_map[ml, mc] = c
     # print(np.unique(clust_map[clust_map!=-9999]))
@@ -1001,7 +1012,7 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
             # Set indices
             idx = np.where(cluster_ids == hru)
 
-            #  Check for spurious data
+            # Check for spurious data
             for v in covariates.keys():
                 vtmp = covariates[v][idx]
                 if v[:3] == 'lc_':
@@ -1018,7 +1029,7 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
 
             # Calculate area per hru
             OUTPUT['hru']['area'][
-                hru] = metadata['resx']**2 * idx[0].size  #  units?
+                hru] = metadata['resx']**2 * idx[0].size  # units?
             # Calculate area percentage per hru
             OUTPUT['hru']['area_pct'][hru] = 100 * OUTPUT['hru']['area'][
                 hru] / (metadata['resx']**2 * mask[mask].size)
@@ -1062,7 +1073,7 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
                     OUTPUT['hru']['land_cover'][hru] = stat_m
             else:
                 OUTPUT['hru']['land_cover'][
-                    hru] = 17  #  if there is no valid value, set to water # Noemi
+                    hru] = 17  # if there is no valid value, set to water # Noemi
 
             # Soil texture class
             stat_tc = stats.mode(covariates['TEXTURE_CLASS'][idx])[0]
@@ -1077,10 +1088,10 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
             )  # 0.1 # Form of the exponential decline in conductivity (0.01-1.0)
 
             # f11, qtz = get_f11_and_qtz_from_soil_type(OUTPUT['hru']['soil_texture_class'][hru])
-            # if np.isnan(f11) == False: OUTPUT['hru']['F11'][hru] = f11
-            # if np.isnan(qtz) == False: OUTPUT['hru']['QTZ'][hru] = qtz
+            # if np.isnan(f11) is False: OUTPUT['hru']['F11'][hru] = f11
+            # if np.isnan(qtz) is False: OUTPUT['hru']['QTZ'][hru] = qtz
 
-            #  Limit parameters to possible range
+            # Limit parameters to possible range
             # if OUTPUT['hru']['BB'][hru] > 11.55: OUTPUT['hru']['BB'][hru] = 11.55
             # if OUTPUT['hru']['BB'][hru] < 2.79: OUTPUT['hru']['BB'][hru] = 2.79
             # if OUTPUT['hru']['DRYSMC'][hru] > 0.138: OUTPUT['hru']['DRYSMC'][hru] = 0.138
@@ -1091,19 +1102,19 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
             # if OUTPUT['hru']['SATDW'][hru] < 0.608e-6: OUTPUT['hru']['SATDW'][hru] = 0.608e-6
             # if OUTPUT['hru']['SATDW'][hru] > 0.239e-4: OUTPUT['hru']['SATDW'][hru] = 0.239e-4
 
-            #  Recalcualte the soil paramters based on the HRU mean values - Noemi
+            # Recalcualte the soil paramters based on the HRU mean values - Noemi
             # lamda_campbell = (np.log(OUTPUT['hru']['REFSMC'][hru])-np.log(OUTPUT['hru']['WLTSMC'][hru]))/(np.log(1500.)-np.log(33.))
             # psisat_campbell = 33*np.power(OUTPUT['hru']['REFSMC'][hru]/OUTPUT['hru']['MAXSMC'][hru], 1/lamda_campbell) # kPa
             # OUTPUT['hru']['BB'][hru] = 1./lamda_campbell
-            # OUTPUT['hru']['SATPSI'][hru] = psisat_campbell*(10./100) #  KPa --> cm --> m
-            # OUTPUT['hru']['SATDW'][hru] = OUTPUT['hru']['BB'][hru] * OUTPUT['hru']['SATDK'][hru] * OUTPUT['hru']['SATPSI'][hru] / OUTPUT['hru']['MAXSMC'][hru] #  m2/hr
+            # OUTPUT['hru']['SATPSI'][hru] = psisat_campbell*(10./100) # KPa --> cm --> m
+            # OUTPUT['hru']['SATDW'][hru] = OUTPUT['hru']['BB'][hru] * OUTPUT['hru']['SATDK'][hru] * OUTPUT['hru']['SATPSI'][hru] / OUTPUT['hru']['MAXSMC'][hru] # m2/hr
 
-            #  Define soil types over urban areas
+            # Define soil types over urban areas
             if OUTPUT['hru']['land_cover'][hru] == 13:
-                #  if there is urban areas in the river channel, set to grassland
+                # if there is urban areas in the river channel, set to grassland
                 # if OUTPUT['hru']['hand'][hru] == 0 :
-                #   OUTPUT['hru']['land_cover'][hru] == 10
-                #   # else, set soil to bedrock
+                #  OUTPUT['hru']['land_cover'][hru] == 10
+                #  # else, set soil to bedrock
                 # else:
                 OUTPUT['hru']['BB'][hru] = 2.79
                 OUTPUT['hru']['MAXSMC'][hru] = 0.20
@@ -1111,14 +1122,14 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
                 OUTPUT['hru']['WLTSMC'][hru] = 0.006
                 OUTPUT['hru']['DRYSMC'][hru] = 0.004
                 OUTPUT['hru']['SATPSI'][hru] = 0.069
-                # OUTPUT['hru']['SATDW'][hru] = 0.136e-3  #  bedrock
-                # OUTPUT['hru']['SATDK'][hru] = 1.41e-4   #  bedrock
+                # OUTPUT['hru']['SATDW'][hru] = 0.136e-3  # bedrock
+                # OUTPUT['hru']['SATDK'][hru] = 1.41e-4   # bedrock
                 # OUTPUT['hru']['QTZ'][hru] = 0.07
                 # OUTPUT['hru']['soil_texture_class'][hru] = 15
 
-            #  Water Management Variables
-            if hydroblocks_info['water_management']['hwu_agric_flag'] == True:
-                #  Irrigation: 1 Irrigated, 2 paddy crop
+            # Water Management Variables
+            if hydroblocks_info['water_management']['hwu_agric_flag'] is True:
+                # Irrigation: 1 Irrigated, 2 paddy crop
                 irrig_vec = np.copy(covariates['irrig_land'][idx].flatten())
                 nii = np.nansum(irrig_vec == 1)
                 npi = np.nansum(irrig_vec == 2)
@@ -1135,13 +1146,13 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
                 else:
                     OUTPUT['hru']['irrig_land'][hru] = 0
 
-                #  Crop Calendar
+                # Crop Calendar
                 OUTPUT['hru']['start_growing_season'][hru] = int(
                     stats.mode(covariates['start_growing_season'][idx])[0][0])
                 OUTPUT['hru']['end_growing_season'][hru] = int(
                     stats.mode(covariates['end_growing_season'][idx])[0][0])
 
-            if hydroblocks_info['water_management']['hwu_flag'] == True:
+            if hydroblocks_info['water_management']['hwu_flag'] is True:
                 # HRU Centroids for water management
                 OUTPUT['hru']['centroid_lons'][hru] = np.nanmean(
                     covariates['lons'][idx])
@@ -1151,7 +1162,7 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
 
             t.update()
 
-    # if hydroblocks_info['water_management']['hwu_flag'] == True:
+    # if hydroblocks_info['water_management']['hwu_flag'] is True:
     # for hru in np.arange(nhru):
     # # HRU distance between the centroids of the hru and all the other hrus  -- need to fix skimage dependences
     # OUTPUT['hru']['hru_min_dist'][hru,:] = mgmt_funcs.calculate_min_distance(hru, nhru, cluster_ids, covariates['lats'], covariates['lons'], OUTPUT['hru']['centroid_lats'], OUTPUT['hru']['centroid_lons'])
@@ -1162,16 +1173,20 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
 
 def Determine_HMC_Connectivity_old(h1, h2, b1, b2, tp1, tp2, hmc):
 
-    if (h2 == -9999): return False
-    if (h1 == h2): return True
+    if (h2 == -9999):
+        return False
+    if (h1 == h2):
+        return True
 
-    #  Noemi
-    # if ((tp1 == tp2) & (tp1 == 0) & (b1 != b2) & (hmc['intervalley_connectivity'] == True)):return True
-    # if (b1 != b2) & (hmc['interridge_connectivity'] == False):return False
-    # if (np.abs(tp1 - tp2) != 1) & (hmc['intraband_connectivity'] == False):return False
+    # Noemi
+    # if ((tp1 == tp2) & (tp1 == 0) & (b1 != b2) & (hmc['intervalley_connectivity'] is True)):return True
+    # if (b1 != b2) & (hmc['interridge_connectivity'] is False):return False
+    # if (np.abs(tp1 - tp2) != 1) & (hmc['intraband_connectivity'] is False):return False
 
-    if (b1 != b2) & ((tp1 == itp2) | (tp1 == 0)): return True
-    if (b1 != b2): return False
+    if (b1 != b2) & ((tp1 == tp2) | (tp1 == 0)):
+        return True
+    if (b1 != b2):
+        return False
 
     return True
 
@@ -1180,19 +1195,25 @@ def Determine_HMC_Connectivity(h1, h2, b1, b2, tp1, tp2, hmc):
 
     ivc = hmc['intervalley_connectivity']
     irc = hmc['interridge_connectivity']
-    ibc = hmc['intraband_connectivity']
+    # ibc = hmc['intraband_connectivity']
 
-    if (h2 == -9999): return False
-    if (h1 == h2): return True
-    if (b1 == b2): return True
+    if (h2 == -9999):
+        return False
+    if (h1 == h2):
+        return True
+    if (b1 == b2):
+        return True
 
     if (b1 != b2):
 
-        if ((tp1 == tp2) & (tp1 == 0) & (ivc)): return True
-        if (irc == False): return False
-        if (irc == True): return True
+        if ((tp1 == tp2) & (tp1 == 0) & (ivc)):
+            return True
+        if (irc is False):
+            return False
+        if (irc is True):
+            return True
 
-    # if (np.abs(tp1 - tp2) == 1) & (ibc == False): return False
+    # if (np.abs(tp1 - tp2) == 1) & (ibc is False): return False
 
     print("Missing connectivity case:", h1, h2, b1, b2, tp1, tp2, flush=True)
 
@@ -1356,7 +1377,7 @@ def Create_and_Curate_Covariates(wbd, hydroblocks_info):
         if os.path.isfile(wbd['files'][file]):
             covariates[file] = gdal_tools.read_raster(wbd['files'][file])
 
-    #  check if lc is a covariates, and disagregate it in classes
+    # check if lc is a covariates, and disagregate it in classes
     if 'lc' in hydroblocks_info['hmc_parameters'][
             'intraband_clustering_covariates']:
         for lc in np.unique(covariates['lc'][covariates['mask'].astype(bool)]):
@@ -1386,13 +1407,13 @@ def Create_and_Curate_Covariates(wbd, hydroblocks_info):
     mask[mask < 0] = 0
     mask = mask.astype(bool)
 
-    #  Identify missing values
+    # Identify missing values
     for var in covariates:
         mask0 = (np.isinf(covariates[var]) == 1) | (np.isnan(covariates[var])
                                                     == 1)
         covariates[var][mask0] = -9999.0
 
-    #  Spatial imputation on -9999
+    # Spatial imputation on -9999
     for var in covariates:
 
         m2 = (mask == 1) & (covariates[var] != -9999.0)
@@ -1402,12 +1423,12 @@ def Create_and_Curate_Covariates(wbd, hydroblocks_info):
             print(
                 "Warning: Covariate %s in catchment %s has %.2f %% of nan's" %
                 (var, hydroblocks_info['icatch'], 100 * missing_ratio),
-                flush=True)  #  Noemi insert
+                flush=True)  # Noemi insert
             if var == 'lc':
                 mlc = (covariates[var] == -9999) & mask
-                covariates[var][mlc] = 17  #  Water
+                covariates[var][mlc] = 17  # Water
             if var == 'dbedrock':
-                #  fill no-data dbedrock values at water -- this should be improved
+                # fill no-data dbedrock values at water -- this should be improved
                 covariates['dbedrock'][(covariates['dbedrock'] == -9999)
                                        & (covariates['lc'] == 17)] = 50
                 m2 = (mask == 1) & (covariates[var] != -9999.0)
@@ -1432,7 +1453,7 @@ def Create_and_Curate_Covariates(wbd, hydroblocks_info):
             elif var[:3] == 'lc_':
                 pass
             elif var in ['dem']:
-                pass  #  do imputation afterwards
+                pass  # do imputation afterwards
             else:
                 # print(var, np.sum( covariates[var] != -9999 ), flush=True)
                 covariates[var] = spatial_imputation(covariates[var], -9999.0,
@@ -1449,17 +1470,15 @@ def Create_and_Curate_Covariates(wbd, hydroblocks_info):
     return (covariates, mask)
 
 
-from scipy.stats import find_repeats
-
-
 def faster_mode1D(a, fill_val):
-    arr = np.asarray(a)  #  would be _chk_array
-    if len(arr) < 1: return fill_val
+    arr = np.asarray(a)  # would be _chk_array
+    if len(arr) < 1:
+        return fill_val
 
     v, c = find_repeats(arr)
     # print(arr,v,c,flush=True)
     if c.size == 0:
-        arr.sort()  #  mimic first value behavior
+        arr.sort()  # mimic first value behavior
         return arr[0]  # , 1.
     else:
         pos = c.argmax()
@@ -1471,10 +1490,11 @@ def spatial_imputation(array, fill_val, method, mask_catch):
     array = np.ma.filled(array, fill_value=fill_val)
     array[np.isnan(array)] = fill_val
 
-    #  If nothing to be filled return
-    if np.sum(array == fill_val) == 0: return array  #  if not  missing return
+    # If nothing to be filled return
+    if np.sum(array == fill_val) == 0:
+        return array  # if not  missing return
 
-    #  Fill outside the catchment with mode:
+    # Fill outside the catchment with mode:
     pos_fill = (array == fill_val) & (~mask_catch)
     nmissing = np.sum(pos_fill)
     if nmissing > 0:
@@ -1482,22 +1502,22 @@ def spatial_imputation(array, fill_val, method, mask_catch):
         array[pos_fill] = faster_mode1D(array[array != fill_val].ravel(),
                                         fill_val)
 
-    #  Fill inside the catchment
+    # Fill inside the catchment
     pos_fill = (array == fill_val) & mask_catch
     nmissing = np.sum(pos_fill)
     # print(nmissing,flush=True)
     if nmissing > 0:
 
-        #  If there are way too many missing values inside the catchmentment
+        # If there are way too many missing values inside the catchmentment
         if nmissing > (
                 30 *
-                30) * 50:  #  If missing more than 50 km2, return with the mode
+                30) * 50:  # If missing more than 50 km2, return with the mode
             fill_with = (array != fill_val) & (mask_catch)
             array[pos_fill] = faster_mode1D(array[fill_with].ravel(), fill_val)
             del fill_with
             return array
 
-        #  Else use nearest for filling inside the catchment
+        # Else use nearest for filling inside the catchment
         pos_mask = np.zeros(array.shape, dtype=np.uint8)
         pos_mask[pos_fill] = 1
         if method == 'nearest':
@@ -1524,26 +1544,26 @@ def spatial_imputation(array, fill_val, method, mask_catch):
         x1 = xx[~array2.mask]  # train vals
         y1 = yy[~array2.mask]  # train vals
         newarr = array[~array2.mask]  # train vals
-        xf = xx[array.mask]  #  fill vals
+        xf = xx[array.mask]  # fill vals
         yf = yy[array.mask]  # fill vals
         # print(x1,y1,flush=True)
         # print(xf,yf,flush=True)
 
-        #  If there is data in the souroundings to train:
+        # If there is data in the souroundings to train:
         if len(x1) > 0:
             filled = griddata((x1, y1),
                               newarr.ravel(), (xf, yf),
                               method=method)
-            array[array.mask] = filled  #  replace fill vals
-        else:  #  fill with the mode
+            array[array.mask] = filled  # replace fill vals
+        else:  # fill with the mode
             fill_with = (array != fill_val) & (mask_catch)
             array[array.mask] = faster_mode1D(array[fill_with].ravel(),
                                               fill_val)
 
         if method in ['linear', 'cubic']:
-            #  fill the missing boundaries with nearest
+            # fill the missing boundaries with nearest
             array = np.ma.masked_invalid(array)
-            xf = xx[array.mask]  #  fill vals
+            xf = xx[array.mask]  # fill vals
             yf = yy[array.mask]  # fill vals
             filled = griddata((x1, y1),
                               newarr.ravel(), (xf, yf),
@@ -1683,8 +1703,8 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
         file_fine = '%s/%s_ea_fine.tif' % (workspace, data_var)
         mask_coarse = gdal_tools.read_raster(file_coarse)
         mask_fine = gdal_tools.read_raster(file_fine)
-        nlat = mask_coarse.shape[0]
-        nlon = mask_coarse.shape[1]
+        # nlat = mask_coarse.shape[0]
+        # nlon = mask_coarse.shape[1]
 
         # Compute the mapping for each hru
         for hru in np.arange(hydroblocks_info['nhru']):
@@ -1692,7 +1712,7 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
             # print "Catch:",hydroblocks_info['icatch'], "HRU: ", mask_fine[idx].astype(np.int32)
             icells = np.unique(
                 mask_fine[idx][mask_fine[idx] != -9999.0].astype(
-                    np.int32))  #  Add != -9999 for unique and bicount - Noemi
+                    np.int32))  # Add != -9999 for unique and bicount - Noemi
             counts = np.bincount(
                 mask_fine[idx][mask_fine[idx] != -9999.0].astype(np.int32))
             coords, pcts = [], []
@@ -1751,7 +1771,7 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
 
         # Determine the time steps to retrieve
         # fidate = ' '.join(fp.variables['t'].units.split(' ')[2::])
-        # dates = nc.num2date(fp.variables['t'][:],units='hours since %s' % (fidate))  #  num2date doesnt work for step of 3h.
+        # dates = nc.num2date(fp.variables['t'][:],units='hours since %s' % (fidate))  # num2date doesnt work for step of 3h.
         # nc_step = int(fp.variables[time_var].units.split(' ')[0].split('h')[0])
         str_step = fp.variables[time_var].units
         if str_step.startswith('hours'):
@@ -1791,7 +1811,7 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
         startdate = info['time_info']['startdate']
         enddate = info['time_info']['enddate']
 
-        if dates[0] > startdate:
+        if dataset_start > startdate:
             raise ValueError(
                 'First date in meteorology file is after startdate given'
                 f'\nStartdate: {startdate}, first date: {dates[0]}')
@@ -1825,12 +1845,12 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
         # Assing to hrus
         for hru in mapping_info[var]:
             # print(hru,
-            #       var,
-            #       data.shape,
-            #       hru,
-            #       mapping_info[var][hru]['pcts'],
-            #       mapping_info[var][hru]['coords'],
-            #       flush=True)
+            #      var,
+            #      data.shape,
+            #      hru,
+            #      mapping_info[var][hru]['pcts'],
+            #      mapping_info[var][hru]['coords'],
+            #      flush=True)
             # exit()
             pcts = mapping_info[var][hru]['pcts']
             coords = mapping_info[var][hru]['coords']
@@ -1901,10 +1921,10 @@ def Prepare_Water_Use_Semidistributed(workspace, wbd, OUTPUT, input_dir, info,
         mask_fine = gdal_tools.read_raster(file_fine)
         md = gdal_tools.retrieve_metadata(file_fine)
         md['nodata'] = -9999.0
-        nlat = mask_coarse.shape[0]
-        nlon = mask_coarse.shape[1]
+        # nlat = mask_coarse.shape[0]
+        # nlon = mask_coarse.shape[1]
 
-        #  NOAH Land Cover code for each water use sector
+        # NOAH Land Cover code for each water use sector
         water_use_land_cover = {
             'industrial': [13],
             'domestic': [6, 7, 8, 9, 10, 13],
@@ -1912,8 +1932,8 @@ def Prepare_Water_Use_Semidistributed(workspace, wbd, OUTPUT, input_dir, info,
             "agriculture": [12, 14]
         }
 
-        #  1. Identify location of each type of water use
-        #  HRU lc map
+        # 1. Identify location of each type of water use
+        # HRU lc map
         hrus_lc = np.copy(OUTPUT['hru_map'])
         for hru in np.arange(hydroblocks_info['nhru']):
             idx = OUTPUT['hru_map'] == hru
@@ -1922,9 +1942,9 @@ def Prepare_Water_Use_Semidistributed(workspace, wbd, OUTPUT, input_dir, info,
         lc = gdal_tools.read_raster('%s/lc_ea.tif' % (workspace))
         hrus_lc[m] = lc[m]
 
-        for l in np.unique(hrus_lc):
-            idx = hrus_lc == l
-            if l in water_use_land_cover[data_var]:
+        for hru_lc in np.unique(hrus_lc):
+            idx = hrus_lc == hru_lc
+            if hru_lc in water_use_land_cover[data_var]:
                 hrus_lc[idx] = 1.0
             else:
                 hrus_lc[idx] = 0.0
@@ -1934,7 +1954,7 @@ def Prepare_Water_Use_Semidistributed(workspace, wbd, OUTPUT, input_dir, info,
         fine_size = hrus_lc.shape
         fine_res = abs(md['resx'])
 
-        #  Get the coarse water use info and regrid the fine lc to coarser lc
+        # Get the coarse water use info and regrid the fine lc to coarser lc
         wuse_lc_coarse_file = '%s/%s_latlon_coarse.tif' % (workspace, data_var)
         md = gdal_tools.retrieve_metadata(wuse_lc_coarse_file)
         minx = md['minx']
@@ -1949,7 +1969,7 @@ def Prepare_Water_Use_Semidistributed(workspace, wbd, OUTPUT, input_dir, info,
             'gdalwarp -overwrite -t_srs \'%s\' -ot Float32 -dstnodata -9999 -tr %f %f -te %f %f %f %f -r average -q %s %s '
             % (lproj, res, res, minx, miny, maxx, maxy, file_in, file_out))
 
-        #  Calculate the equivalent area of each grid
+        # Calculate the equivalent area of each grid
         data = gdal_tools.read_raster(file_out)
         md['nodata'] = -9999.0
         data[data == md['nodata']] = 0.0
@@ -1972,7 +1992,7 @@ def Prepare_Water_Use_Semidistributed(workspace, wbd, OUTPUT, input_dir, info,
             # print "Catch:",hydroblocks_info['icatch'], "HRU: ", mask_fine[idx].astype(np.int)
             icells = np.unique(
                 mask_fine[idx][mask_fine[idx] != -9999.0].astype(
-                    np.int32))  #  Add != -9999 for unique and bicount - Noemi
+                    np.int32))  # Add != -9999 for unique and bicount - Noemi
             counts = np.bincount(
                 mask_fine[idx][mask_fine[idx] != -9999.0].astype(np.int32))
             coords, pcts = [], []
@@ -2024,7 +2044,7 @@ def Prepare_Water_Use_Semidistributed(workspace, wbd, OUTPUT, input_dir, info,
         data = np.ma.getdata(fp.variables[var][mask_dates, :, :])
         fp.close()
 
-        #  convert water use volume from m3 to m3/m2
+        # convert water use volume from m3 to m3/m2
         file_out = '%s/%s_area_latlon_coarse.tif' % (workspace, data_var)
         wuse_area = gdal_tools.read_raster(file_out)
         m = (wuse_area == 0.0)
@@ -2045,7 +2065,7 @@ def Prepare_Water_Use_Semidistributed(workspace, wbd, OUTPUT, input_dir, info,
                 tmp = pcts * tmp
                 water_use[data_var][:, hru] = np.sum(
                     tmp,
-                    axis=1)  #  final variable m3/m2/s --> m/s of water demand
+                    axis=1)  # final variable m3/m2/s --> m/s of water demand
                 # print hru, data_var, OUTPUT['hru']['land_cover'][hru], water_use[data_var][:,hru]
             else:
                 water_use[data_var][:, hru] = 0.0
@@ -2075,29 +2095,29 @@ def Prepare_Water_Use_Semidistributed(workspace, wbd, OUTPUT, input_dir, info,
 
 def get_f11_and_qtz_from_soil_type(soil_type):
 
-    mapping = {
-        'sand': 1,
-        'loamy_sand': 2,
-        'sandy_loam': 3,
-        'silt_loam': 4,
-        'silt': 5,
-        'loam': 6,
-        'sandy_clay_loam': 7,
-        'silty_clay_loam': 8,
-        'clay_loam': 9,
-        'sandy_clay': 10,
-        'silty_clay': 11,
-        'clay': 12,
-        'organic_matter': 13,
-        'water': 14,
-        'bedrock': 15,
-        'other': 16,
-        'playa': 17,
-        'lava': 18,
-        'white_sand': 19
-    }
+    # mapping = {
+    #     'sand': 1,
+    #     'loamy_sand': 2,
+    #     'sandy_loam': 3,
+    #     'silt_loam': 4,
+    #     'silt': 5,
+    #     'loam': 6,
+    #     'sandy_clay_loam': 7,
+    #     'silty_clay_loam': 8,
+    #     'clay_loam': 9,
+    #     'sandy_clay': 10,
+    #     'silty_clay': 11,
+    #     'clay': 12,
+    #     'organic_matter': 13,
+    #     'water': 14,
+    #     'bedrock': 15,
+    #     'other': 16,
+    #     'playa': 17,
+    #     'lava': 18,
+    #     'white_sand': 19
+    # }
 
-    #  return F11 and QTZ
+    # return F11 and QTZ
 
     if soil_type == 1:
         return -0.472, 0.92
