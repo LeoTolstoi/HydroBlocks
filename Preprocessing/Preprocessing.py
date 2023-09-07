@@ -1744,6 +1744,11 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
                            f'\nVars present: {fp.variables.keys()}')
         # fp = h5py.File(file)
 
+        dataset_start = nc.num2date(fp.variables[time_var][0],
+                                    units=fp.variables[time_var].units)
+        dataset_end = nc.num2date(fp.variables[time_var][-1],
+                                  units=fp.variables[time_var].units)
+
         # Determine the time steps to retrieve
         # fidate = ' '.join(fp.variables['t'].units.split(' ')[2::])
         # dates = nc.num2date(fp.variables['t'][:],units='hours since %s' % (fidate))  #  num2date doesnt work for step of 3h.
@@ -1761,7 +1766,7 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
                 fp.variables[time_var].units.split(' ')[2].split('-'))
         else:
             raise ValueError(
-                f'Unsupported time determination from: {fp.variables[time_var].units}'
+                f'Unsupported time determination form: {fp.variables[time_var].units}'
             )
 
         # checks
@@ -1785,6 +1790,28 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
         dates = np.array(dates)
         startdate = info['time_info']['startdate']
         enddate = info['time_info']['enddate']
+
+        if dates[0] > startdate:
+            raise ValueError(
+                'First date in meteorology file is after startdate given'
+                f'\nStartdate: {startdate}, first date: {dates[0]}')
+
+        if dataset_end < enddate:
+            raise ValueError(
+                'Last date in meteorology file is before enddate given'
+                f'\nEnddate: {enddate}, last date: {dataset_end}'
+                f'\nMeteo-Startdate: {nc_idate} Timestep [h]: {nc_step} Num TP: {nc_nt}'
+                f' Expected end date: {dates[0] + datetime.timedelta(hours=nc_nt * nc_step)}'
+            )
+
+        if dates[-1] < enddate:
+            raise ValueError(
+                'Last date in meteorology mask is before enddate given'
+                f'\nEnddate: {enddate}, last date: {dates[-1]}'
+                f'\nMeteo-Startdate: {nc_idate} Timestep [h]: {nc_step} Num TP: {nc_nt}'
+                f' Expected end date: {dates[0] + datetime.timedelta(hours=nc_nt * nc_step)}'
+            )
+
         mask_dates = (dates >= startdate) & (dates <= enddate)
         data = np.ma.getdata(fp.variables[var][mask_dates, :, :])
         fp.close()
@@ -1823,7 +1850,11 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
                     '\nOverview Info:'
                     f'\nHRU: {hru} Var: {var} DataShape: {data.shape}'
                     f'\nPCTS: {mapping_info[var][hru]["pcts"]}'
-                    f'\nCoords: {mapping_info[var][hru]["coords"]}')
+                    f'\nCoords: {mapping_info[var][hru]["coords"]}'
+                    '\n\nCauses could be that available timesteps < '
+                    'timesteps required from manifest file,\n'
+                    'that meteo data is of unequal lengths or'
+                    'that meteo data does not end at the end of the day.\n')
             # print data_var,np.unique(meteorology[data_var][:,:])
 
         # Write the meteorology to the netcdf file (single chunk for now...)
