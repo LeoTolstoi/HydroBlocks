@@ -173,6 +173,11 @@ def _check_model_files_exist(wbd):
 
 def _prepare_info_and_work_files(hydroblocks_info: dict):
 
+    # setup debug directory
+    if 'debug_dir' in hydroblocks_info.keys():
+        global _dir_debug
+        _dir_debug = hydroblocks_info['debug_dir']
+
     # Prepare the info dictionary
     info = {}
 
