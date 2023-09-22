@@ -823,8 +823,11 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     ngrids = np.sum(mask == 1)
     print('        Number of total clustes (HRUs): %i' % nhru, flush=True)
     print(
-        '        Statistics - grids:%i  HRUs:%i  grids_to_hrus_ratio:%i  delta-dem:%im '
-        % (ngrids, nhru, float(ngrids) / float(nhru), delta_dem),
+        '        Statistics:\n'
+        f'           - grids: {ngrids}\n'
+        f'           - HRUs: {nhru}\n'
+        f'           - grids_to_hrus_ratio: {float(ngrids) / float(nhru)}\n'
+        f'           - delta-dem: {delta_dem}m',
         flush=True)
 
     # add a buffer at the channels and lakes in tile position, this helps channels connectivity at the valleys
