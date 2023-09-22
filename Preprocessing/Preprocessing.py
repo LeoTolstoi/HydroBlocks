@@ -10,6 +10,7 @@ import netCDF4 as nc
 import numpy as np
 import pandas as pd
 import rasterio
+from rasterio.warp import calculate_default_transform, reproject, Resampling
 from scipy.interpolate import griddata
 import scipy.sparse as sparse
 import scipy.stats as stats
@@ -353,26 +354,72 @@ def export_model(hydroblocks_info, workspace, output, icatch, wbd):
     hmca[:] = hru_map
 
     # Write out the mapping
-    file_ca = '%s/hru_mapping_ea.tif' % workspace
-    gdal_tools.write_raster(file_ca, metadata, hru_map)
+    with rasterio.open(wbd['files']['mask']) as src:
+        meta_mask = src.meta.copy()
+        meta_mask['nodata'] = -9999.0
+
+    file_ca = f'{workspace}/hru_mapping_ea.tif'
+    with rasterio.open(file_ca,
+                       "w",
+                       **meta_mask,
+                       compress="ZSTD",
+                       predictor=2,
+                       tiled=True,
+                       bigtiff=True) as dest:
+        dest.write(hru_map, 1)
+
+    # gdal_tools.write_raster(file_ca, metadata, hru_map)
     nhru_ea = np.unique(hru_map[hru_map != -9999]).size
 
     # Map the mapping to regular lat/lon
-    file_ll = '%s/hru_mapping_latlon.tif' % workspace
-    os.system('rm -f %s' % file_ll)
+    file_ll = f'{workspace}/hru_mapping_latlon.tif'
+    os.system(f'rm -f {file_ll}')
     res = wbd['bbox']['res']
     minlat = wbd['bbox']['minlat']
     minlon = wbd['bbox']['minlon']
     maxlat = wbd['bbox']['maxlat']
     maxlon = wbd['bbox']['maxlon']
-    log = '%s/log.txt' % workspace
+    log = f'{workspace}/log.txt'
     # lon_0 = (maxlon + minlon) / 2.0
     # lat_0 = (maxlat + minlat) / 2.0
     # os.system('gdalwarp -tr %f %f -dstnodata %f -r mode -t_srs \'+proj=longlat +lon_0=%f +lat_0=%f +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +no_defs \' -te %.16f %.16f %.16f %.16f %s %s >> %s 2>&1' % (res,res,metadata['nodata'],lon_0,lat_0,minlon,minlat,maxlon,maxlat,file_ca,file_ll,log))
-    os.system(
-        'gdalwarp -overwrite -tr %.16f %.16f -dstnodata %f -t_srs \'+proj=longlat \' -te %.16f %.16f %.16f %.16f %s %s >> %s 2>&1'
-        % (res, res, metadata['nodata'], minlon, minlat, maxlon, maxlat,
-           file_ca, file_ll, log))  # Noemi
+
+    # TODO pipe it with grad_translate for compression (https://gis.stackexchange.com/questions/89444/file-size-inflation-normal-with-gdalwarp)
+    # TODO get the warp target CRS directly from the meteo input data
+    # NVergoplan used this: -t_srs \'+proj=longlat \'
+    # os.system(f"gdalwarp -overwrite -tr {res:.16f} {res:.16f} "
+    #           f"-dstnodata {metadata['nodata']} -t_srs EPSG:4326 "
+    #           f"-te {minlon:.16f} {minlat:.16f} {maxlon:.16f} {maxlat:.16f} "
+    #           f"{file_ca} {file_ll} >> {log} 2>&1")
+
+    target_crs = rasterio.crs.CRS.from_epsg(4326)
+    with rasterio.open(file_ca) as src:
+        transform, width, height = calculate_default_transform(
+            src.crs, target_crs, src.width, src.height, *src.bounds)
+        kwargs = src.meta.copy()
+        kwargs.update({
+            'crs': target_crs,
+            'transform': transform,
+            'width': width,
+            'height': height
+        })
+
+        with rasterio.open(file_ll,
+                           'w',
+                           **kwargs,
+                           compress="ZSTD",
+                           predictor=2,
+                           tiled=True,
+                           bigtiff=True) as dst:
+            for i in range(1, src.count + 1):
+                reproject(source=rasterio.band(src, i),
+                          destination=rasterio.band(dst, i),
+                          src_transform=src.transform,
+                          src_crs=src.crs,
+                          dst_transform=transform,
+                          dst_crs=target_crs,
+                          resampling=Resampling.nearest)
+
     tmp = gdal_tools.read_raster(file_ll)
     nhru_latlon = np.unique(tmp[tmp != -9999]).size
     if nhru_ea != nhru_latlon:
