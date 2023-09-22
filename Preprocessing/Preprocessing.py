@@ -284,6 +284,18 @@ def _prepare_info_and_work_files(hydroblocks_info: dict):
         global _debug_geotiff_meta
         _debug_geotiff_meta = src.meta.copy()
 
+    # check crs type & units using the fine mask (mask_ea.tif) because it is the most common base metadata used
+    # TODO insert crs consistency check between input files
+    with rasterio.open(f'{workspace}/mask_ea.tif') as src:
+        crs = src.crs
+        units = src.units
+
+    if not crs.is_projected:
+        raise ValueError(
+            'CRS in mask_ea.tif is not projected, but needs to be\n'
+            f'CRS: {crs}')
+    # TODO check for units to be meters - does not consistently work for all input files
+
     # enforce cleanup
     gc.collect()
 
@@ -1640,8 +1652,9 @@ def Create_Clusters_And_Connections(workspace, wbd, output, input_dir, info,
 
     # Manually set the resolution [m], if so set in the settings
     # TODO replace with an automatic method, either fully auto or given in settings (EPSG + coords)
-    if 'raster_resolution' in hydroblocks_info.keys():
-        resx = hydroblocks_info['raster_resolution']
+    # TODO Needs careful checking, because not every usage pulls it from this resx
+    # if 'raster_resolution' in hydroblocks_info.keys():
+    #     resx = hydroblocks_info['raster_resolution']
 
     if resx < 1.0:
         print(f'\nWarning: Cellsize extracted ({resx}) is less than 1m.\n')
