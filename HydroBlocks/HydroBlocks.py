@@ -140,7 +140,7 @@ class HydroBlocks:
         # import multiprocessing
         # self.ncores = multiprocessing.cpu_count()
         self.ncores = info['ncores']  # cpu_count() # Used in OMP in Noah-MP
-        print("threads in NOAH-MP", self.ncores, flush=True)
+        print("Threads in NOAH-MP", self.ncores, flush=True)
         self.idate = info['idate']
         self.fdate = info['fdate']
         self.spin_date = info['spin_date']
