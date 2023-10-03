@@ -200,10 +200,7 @@ def update_workhorse(theta, dz, hdiv, thetar, thetas, b, satpsi, m, ksat, hand,
         ztop = zbot - dz[:, il]
 
         # Calculate transmissivity
-        print('calculate_transmissivity')
         T = calculate_transmissivity(psi, ztop, zbot, m, ksat, satpsi, b)
-        if 0 in T:
-            print('Contains zero transmissivity')
 
         # Calculate hydraulic head
         h = calculate_hydraulic_head(hand, psi, ztop)
@@ -232,12 +229,17 @@ def calculate_soil_moisture_potential(il, theta, thetar, thetas, b, satpsi):
 def calculate_transmissivity(psi, ztop, zbot, m, ksat, satpsi, b):
 
     af = 1.0  # 10.0# 2.0
-    Ksat_x = af * ksat  # lateral saturated hydraulic conductivity (multiply times anisotropy factor) [m/s]
+
+    # lateral saturated hydraulic conductivity (multiply times anisotropy factor) [m/s]
+    Ksat_x = af * ksat
     K_x = Ksat_x * np.true_divide(psi, satpsi)**(-2 - np.true_divide(3., b))
+
     # Calculate transmissivity at top layer (exponential decay)
     Ttop = m * K_x * np.exp(-ztop / m)
+
     # Calculate transmissivity at bottom of layer (exponential decay)
     Tbot = m * K_x * np.exp(-zbot / m)
+
     T = Ttop - Tbot
 
     return T
@@ -286,7 +288,10 @@ def calculate_That(T):
     That = np.zeros((T.size, T.size))
     for i in range(T.size):
         for j in range(T.size):
-            That[i, j] = (2 * T[i] * T[j]) / (T[i] + T[j])
+            if (T[i] + T[j]) == 0:
+                That[i, j] = 1e-50
+            else:
+                That[i, j] = (2 * T[i] * T[j]) / (T[i] + T[j])
             # That[i,j] = np.true_divide((2*T[:,np.newaxis]*T[np.newaxis,:]),(T[:,np.newaxis] + T[np.newaxis,:]))
 
     return That
