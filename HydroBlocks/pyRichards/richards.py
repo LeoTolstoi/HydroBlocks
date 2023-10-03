@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.sparse as sparse
-import time
+# import time
 import numba
 
 
@@ -191,16 +191,26 @@ def update_workhorse(theta, dz, hdiv, thetar, thetas, b, satpsi, m, ksat, hand,
 
     # Iterate per layer
     for il in range(theta.shape[1]):
+
         # Calculate soil moisture potential
         psi = calculate_soil_moisture_potential(il, theta, thetar, thetas, b,
                                                 satpsi)
+
         zbot = np.sum(dz[:, 0:il + 1], axis=1)
         ztop = zbot - dz[:, il]
+
+        # Calculate transmissivity
+        print('calculate_transmissivity')
         T = calculate_transmissivity(psi, ztop, zbot, m, ksat, satpsi, b)
+        if 0 in T:
+            print('Contains zero transmissivity')
+
         # Calculate hydraulic head
         h = calculate_hydraulic_head(hand, psi, ztop)
+
         # Calculate the divergence
         q = calculate_divergence(h, T, w, dx, area)
+
         hdiv[:, il] = np.sum(q, axis=0)  # mm/s'''
 
     return hdiv
