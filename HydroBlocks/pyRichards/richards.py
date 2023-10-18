@@ -289,7 +289,7 @@ def calculate_That(T):
     for i in range(T.size):
         for j in range(T.size):
             if (T[i] + T[j]) == 0:
-                That[i, j] = 1e-50
+                That[i, j] = 1e-10
             else:
                 That[i, j] = (2 * T[i] * T[j]) / (T[i] + T[j])
             # That[i,j] = np.true_divide((2*T[:,np.newaxis]*T[np.newaxis,:]),(T[:,np.newaxis] + T[np.newaxis,:]))
