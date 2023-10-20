@@ -2,7 +2,6 @@
 import gc
 import os
 import sys
-import timeit
 import warnings
 
 # Data related
@@ -185,7 +184,8 @@ def _prepare_info_and_work_files(hydroblocks_info: dict):
         _dir_debug = hydroblocks_info['debug_dir']
 
     if _flag_debug_timing:
-        time_start = timeit.time_init()
+        time_start = datetime.datetime.now()
+        os.makedirs(_dir_debug, exist_ok=True)
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'w') as f:
             f.write('Execution timing log for the HB Preprocessor\n')
     else:
@@ -313,7 +313,7 @@ def _prepare_info_and_work_files(hydroblocks_info: dict):
     gc.collect()
 
     if _flag_debug_timing:
-        time_end = timeit.time_end(time_start)
+        time_end = datetime.datetime.now() - time_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'   _prepare_info_and_work_files(): {time_end}\n')
 
@@ -323,7 +323,7 @@ def _prepare_info_and_work_files(hydroblocks_info: dict):
 def Prepare_Model_Input_Data(hydroblocks_info):
 
     if _flag_debug_timing:
-        time_start = timeit.time_init()
+        time_start = datetime.datetime.now()
 
     print('\nPreparing the model input data...')
     info, workspace, input_dir, output, icatch, wbd = _prepare_info_and_work_files(
@@ -353,7 +353,7 @@ def Prepare_Model_Input_Data(hydroblocks_info):
     print('\n')
 
     if _flag_debug_timing:
-        time_end = timeit.time_end(time_start)
+        time_end = datetime.datetime.now() - time_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'Overall execution time: {time_end}\n')
 
@@ -536,7 +536,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
                                      eares):
 
     if _flag_debug_timing:
-        time_start = timeit.time_init()
+        time_start = datetime.datetime.now()
 
     # PARAMETERS (NEED TO GO OUTSIDE)
     # eares = 30  # meters
@@ -556,7 +556,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     # Remove pits in dem
     print("        Removing pits in dem", flush=True)
     if _flag_debug_timing:
-        tmp_start = timeit.time_init()
+        tmp_start = datetime.datetime.now()
 
     # normalize DEM -- Noemi
     invalid_dem = dem == -9999
@@ -572,21 +572,21 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     covariates['demns'] = demns
 
     if _flag_debug_timing:
-        tmp_end = timeit.time_end(tmp_start)
+        tmp_end = datetime.datetime.now() - tmp_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'         - DEM pit removal: {tmp_end}\n')
 
     # Calculate slope and aspect
     print("        Calculating slope and aspect", flush=True)
     if _flag_debug_timing:
-        tmp_start = timeit.time_init()
+        tmp_start = datetime.datetime.now()
     res_array = np.copy(demns)
     res_array[:] = eares
     (slope, aspect) = terrain_tools.ttf.calculate_slope_and_aspect(
         demns, res_array, res_array)
 
     if _flag_debug_timing:
-        tmp_end = timeit.time_end(tmp_start)
+        tmp_end = datetime.datetime.now() - tmp_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'         - Slope and aspect: {tmp_end}\n')
 
@@ -596,7 +596,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
 
     print("        Calculating accumulated area", flush=True)
     if _flag_debug_timing:
-        tmp_start = timeit.time_init()
+        tmp_start = datetime.datetime.now()
     (area, fdir) = terrain_tools.ttf.calculate_d8_acc(demns, m2, eares)
     display_data(area, _flag_debug_compute_HRU_semi, 'Accumulated Area',
                  '02.03_accumulated_area')
@@ -634,14 +634,14 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
                  'FDC - second layer', '02.03_fdc_shape2')
 
     if _flag_debug_timing:
-        tmp_end = timeit.time_end(tmp_start)
+        tmp_end = datetime.datetime.now() - tmp_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'         - Accumulated area calculation: {tmp_end}\n')
 
     # Compute the channels
     print("        Defining channels", flush=True)
     if _flag_debug_timing:
-        tmp_start = timeit.time_init()
+        tmp_start = datetime.datetime.now()
     channels = terrain_tools.ttf.calculate_channels_wocean(
         ac, basin_area_threshold, basin_area_threshold, fdc, m2)
     display_data(channels, _flag_debug_compute_HRU_semi, 'Channels - Whole',
@@ -656,14 +656,14 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
                  '02.05_channels_masked')
 
     if _flag_debug_timing:
-        tmp_end = timeit.time_end(tmp_start)
+        tmp_end = datetime.datetime.now() - tmp_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'         - Channel definition: {tmp_end}\n')
 
     # Compute the basins
     print("        Defining basins", flush=True)
     if _flag_debug_timing:
-        tmp_start = timeit.time_init()
+        tmp_start = datetime.datetime.now()
     basins = terrain_tools.ttf.delineate_basins(channels, m2, fdir)
 
     # Remove channel artifacts from basin delineation
@@ -710,14 +710,14 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
                  'Channels & Lakes & Wetlands', '02.06_channels_lakes', mask)
 
     if _flag_debug_timing:
-        tmp_end = timeit.time_end(tmp_start)
+        tmp_end = datetime.datetime.now() - tmp_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'         - Basin definition: {tmp_end}\n')
 
     # Calculate the height above nearest drainage area
     print("        Computing height above nearest drainage area", flush=True)
     if _flag_debug_timing:
-        tmp_start = timeit.time_init()
+        tmp_start = datetime.datetime.now()
     # hand = terrain_tools.ttf.calculate_depth2channel(channels,basins,fdir,demns) # dem should be normalized
     hand = terrain_tools.ttf.calculate_depth2channel(
         channels_w_lakes, basins, fdir, demns)  # dem should be normalized
@@ -773,14 +773,14 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
         # if len(tmp) > 0: c_basins[m] = np.max(c_basins)+1
 
     if _flag_debug_timing:
-        tmp_end = timeit.time_end(tmp_start)
+        tmp_end = datetime.datetime.now() - tmp_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'         - Height near drainage: {tmp_end}\n')
 
     # Calculate topographic index
     print("        Computing topographic index")
     if _flag_debug_timing:
-        tmp_start = timeit.time_init()
+        tmp_start = datetime.datetime.now()
     ti = np.copy(area)
     m = (area != -9999) & (slope != -9999) & (slope != 0.0)
     ti[m] = np.log(area[m] / eares / slope[m])
@@ -808,27 +808,27 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     covariates['ti'] = ti
 
     if _flag_debug_timing:
-        tmp_end = timeit.time_end(tmp_start)
+        tmp_end = datetime.datetime.now() - tmp_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'         - Topographic index: {tmp_end}\n')
 
     # Calculate the subbasin properties
     print("        Assembling the subbasin properties")
     if _flag_debug_timing:
-        tmp_start = timeit.time_init()
+        tmp_start = datetime.datetime.now()
     hp_in = terrain_tools.calculate_basin_properties_updated(
         basins, eares, covariates,
         hydroblocks_info['hmc_parameters']['subbasin_clustering_covariates'])
     if _flag_debug_timing:
-        tmp_end = timeit.time_end(tmp_start)
+        tmp_end = datetime.datetime.now() - tmp_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'         - Subbasin properties: {tmp_end}\n')
 
     # Clustering the basins
     print("        Clustering the basins")
     if _flag_debug_timing:
-        tmp_start = timeit.time_init()
-        t3_start = timeit.time_init()
+        tmp_start = datetime.datetime.now()
+        t3_start = datetime.datetime.now()
     # Assemble input data
     cvs = {}
     for var in hydroblocks_info['hmc_parameters'][
@@ -889,9 +889,9 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
         # for input
 
     if _flag_debug_timing:
-        t3_end = timeit.time_end(t3_start)
+        t3_end = datetime.datetime.now() - t3_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
-            f.write(f'            - Main basin clusters: {tmp_end}\n')
+            f.write(f'            - Main basin clusters: {t3_end}\n')
 
     print('        Number of sub-basins clusters: %i' %
           (np.unique(basin_clusters[basin_clusters != -9999]).size),
@@ -899,7 +899,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
 
     # Divide each subbasin into height bands
     if _flag_debug_timing:
-        t3_start = timeit.time_init()
+        t3_start = datetime.datetime.now()
     (tiles, new_hand,
      tile_position) = terrain_tools.create_basin_tiles(basin_clusters, hand,
                                                        demns, basins, dh)
@@ -908,7 +908,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     display_data(new_hand, _flag_debug_compute_HRU_semi, 'New Hand',
                  '02.11_new_hand', mask)
     if _flag_debug_timing:
-        t3_end = timeit.time_end(t3_start)
+        t3_end = datetime.datetime.now() - t3_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'            - Height bands: {tmp_end}\n')
 
@@ -918,7 +918,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
 
     # De-normalize DEM
     if _flag_debug_timing:
-        t3_start = timeit.time_init()
+        t3_start = datetime.datetime.now()
     dem = dem + min_dem
     demns = demns + min_dem
     covariates['dem'] = dem
@@ -946,7 +946,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
             'd': covariates[var]
         }
     if _flag_debug_timing:
-        t3_end = timeit.time_end(t3_start)
+        t3_end = datetime.datetime.now() - t3_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'            - Elevation band clusters: {tmp_end}\n')
 
@@ -954,7 +954,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     print('        Number of clusters per elevation band: %i' % nclusters,
           flush=True)
     if _flag_debug_timing:
-        t3_start = timeit.time_init()
+        t3_start = datetime.datetime.now()
     hrus = terrain_tools.create_hrus_hydroblocks(basin_clusters, tiles,
                                                  channels, cvs, nclusters)
     hrus[hrus != -9999] = hrus[hrus != -9999] - 1
@@ -964,7 +964,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     count = np.max(hrus) + 1
     ulakes = np.unique(lakes[lakes != -9999])
     if _flag_debug_timing:
-        t3_end = timeit.time_end(t3_start)
+        t3_end = datetime.datetime.now() - t3_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'            - HRUs generation: {tmp_end}\n')
 
@@ -973,7 +973,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
           flush=True)
 
     if _flag_debug_timing:
-        t3_start = timeit.time_init()
+        t3_start = datetime.datetime.now()
     for lake in ulakes:
         m = lakes == lake
         hrus[m] = count
@@ -993,7 +993,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
     display_data(hrus, _flag_debug_compute_HRU_semi, 'HRUs', '02.13_hrus',
                  mask)
     if _flag_debug_timing:
-        t3_end = timeit.time_end(t3_start)
+        t3_end = datetime.datetime.now() - t3_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'            - Lake and wetlands: {tmp_end}\n')
 
@@ -1009,7 +1009,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
 
     # add a buffer at the channels and lakes in tile position, this helps channels connectivity at the valleys
     if _flag_debug_timing:
-        t3_start = timeit.time_init()
+        t3_start = datetime.datetime.now()
     tile_position = add_buffer_to_channels(tile_position, channels, new_hand,
                                            mask)
     tile_position = add_buffer_to_water_and_wetlands(tile_position, covariates,
@@ -1018,7 +1018,7 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
                  '02.14_tile_position')
 
     if _flag_debug_timing:
-        t3_end = timeit.time_end(t3_start)
+        t3_end = datetime.datetime.now() - t3_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'            - Tile positions: {tmp_end}\n')
 
@@ -1029,12 +1029,12 @@ def Compute_HRUs_Semidistributed_HMC(covariates, mask, hydroblocks_info, wbd,
         'basins'] = c_basins  # Noemi -- use coarse scale sub-basins or set ridge connection to true
     HMC_info['tile_position'] = tile_position
     if _flag_debug_timing:
-        tmp_end = timeit.time_end(tmp_start)
+        tmp_end = datetime.datetime.now() - tmp_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'         - Basin clustering: {tmp_end}\n')
 
     if _flag_debug_timing:
-        time_end = timeit.time_end(time_start)
+        time_end = datetime.datetime.now() - time_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'      Compute_HRUs_Semidistributed_HMC(): {time_end}\n')
 
@@ -1181,7 +1181,7 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
                                       OUTPUT, cluster_ids, mask):
 
     if _flag_debug_timing:
-        time_start = timeit.time_init()
+        time_start = datetime.datetime.now()
 
     nhru = hydroblocks_info['nhru']
     # Initialize the arrays
@@ -1373,7 +1373,7 @@ def Assign_Parameters_Semidistributed(covariates, metadata, hydroblocks_info,
     # OUTPUT['hru']['hru_min_dist'][hru,hru] = 0.0
 
     if _flag_debug_timing:
-        time_end = timeit.time_end(time_start)
+        time_end = datetime.datetime.now() - time_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'   Assign_Parameters_Semidistributed(): {time_end}\n')
 
@@ -1433,7 +1433,7 @@ def Calculate_HRU_Connections_Matrix_HMC(covariates, cluster_ids, nhru, dx,
                                          HMC_info, hydroblocks_info):
 
     if _flag_debug_timing:
-        time_start = timeit.time_init()
+        time_start = datetime.datetime.now()
 
     # Add pointers for simplicity
     tile_position = HMC_info['tile_position']
@@ -1579,7 +1579,7 @@ def Calculate_HRU_Connections_Matrix_HMC(covariates, cluster_ids, nhru, dx,
     }
 
     if _flag_debug_timing:
-        time_end = timeit.time_end(time_start)
+        time_end = datetime.datetime.now() - time_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(
                 f'      Calculate_HRU_Connections_Matrix_HMC(): {time_end}\n')
@@ -1590,7 +1590,7 @@ def Calculate_HRU_Connections_Matrix_HMC(covariates, cluster_ids, nhru, dx,
 def Create_and_Curate_Covariates(wbd, hydroblocks_info):
 
     if _flag_debug_timing:
-        time_start = timeit.time_init()
+        time_start = datetime.datetime.now()
 
     covariates = {}
     # Read in and curate all the covariates
@@ -1689,7 +1689,7 @@ def Create_and_Curate_Covariates(wbd, hydroblocks_info):
         covariates[var][mask <= 0] = -9999.0
 
     if _flag_debug_timing:
-        time_end = timeit.time_end(time_start)
+        time_end = datetime.datetime.now() - time_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'      Create_and_Curate_Covariates(): {time_end}\n')
 
@@ -1806,7 +1806,7 @@ def Create_Clusters_And_Connections(workspace, wbd, output, input_dir, info,
     print('Creating clusters and connections', flush=True)
 
     if _flag_debug_timing:
-        time_start = timeit.time_init()
+        time_start = datetime.datetime.now()
 
     # Retrieve some metadata
     metadata = gdal_tools.retrieve_metadata(wbd['files']['mask'])
@@ -1883,7 +1883,7 @@ def Create_Clusters_And_Connections(workspace, wbd, output, input_dir, info,
     OUTPUT['mask'] = mask
 
     if _flag_debug_timing:
-        time_end = timeit.time_end(time_start)
+        time_end = datetime.datetime.now() - time_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'   Create_Clusters_And_Connections(): {time_end}\n')
 
@@ -1922,13 +1922,13 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
                                         info, hydroblocks_info):
 
     if _flag_debug_timing:
-        time_start = timeit.time_init()
+        time_start = datetime.datetime.now()
 
     # Define the mapping directory
     mapping_info = {}
     # Calculate the fine to coarse scale mapping
     if _flag_debug_timing:
-        tmp_start = timeit.time_init()
+        tmp_start = datetime.datetime.now()
     print('   Creating the fine-to-coarse mapping', flush=True)
     for data_var in wbd['files_meteorology']:
 
@@ -1974,7 +1974,7 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
         gc.collect()
 
     if _flag_debug_timing:
-        tmp_end = timeit.time_end(tmp_start)
+        tmp_end = datetime.datetime.now() - tmp_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'         - Fine to coarse mapping: {tmp_end}\n')
 
@@ -1983,7 +1983,7 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
     # Iterate through variable creating forcing product per HRU
     print('   Creating per HRU meteorological forcing', flush=True)
     if _flag_debug_timing:
-        tmp_start = timeit.time_init()
+        tmp_start = datetime.datetime.now()
     idate = info['time_info']['startdate']
     fdate = info['time_info']['enddate']
     dt = info['time_info']['dt']
@@ -2145,11 +2145,11 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
     var[:] = dates[:]
 
     if _flag_debug_timing:
-        tmp_end = timeit.time_end(tmp_start)
+        tmp_end = datetime.datetime.now() - tmp_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'         - per HRU meteo forcing: {tmp_end}\n')
 
-        time_end = timeit.time_end(time_start)
+        time_end = datetime.datetime.now() - time_start
         with open(os.path.join(_dir_debug, _fn_debug_timing), 'a') as f:
             f.write(f'   Prepare_Meteorology_Semidistributed(): {time_end}\n')
 
