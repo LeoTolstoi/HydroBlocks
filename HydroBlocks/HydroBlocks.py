@@ -818,6 +818,24 @@ class HydroBlocks:
             np.sum(NOAH.sldpth[i, :dl[i]]) for i in range(self.nhru)
         ]
 
+        # Snow
+        tmp['albold'] = np.copy(NOAH.albold)  # snow albedo at last time step
+        tmp['ficeold'] = np.copy(NOAH.ficeold)  # snow layer ice fraction
+        tmp['fsno'] = np.copy(NOAH.fsno)  # snow cover fraction
+        tmp['ponding'] = np.copy(NOAH.ponding)  # snowmelt with no pack [mm]
+        tmp['ponding1'] = np.copy(NOAH.ponding1)  # snowmelt with no pack [mm]
+        tmp['ponding2'] = np.copy(NOAH.ponding2)  # snowmelt with no pack [mm]
+        tmp['qsnbot'] = np.copy(
+            NOAH.qsnbot)  # snowmelt out bottom of pack [mm/s]
+        tmp['qsnow'] = np.copy(NOAH.qsnow)  # snowfall on the ground (mm/s)
+        tmp['sndpth'] = np.copy(NOAH.sndpth)  # snow depth (m)
+        tmp['sneqvo'] = np.copy(
+            NOAH.sneqvo)  # snow mass at last time step (mm h2o)
+        tmp['snice'] = np.copy(NOAH.snice)  # snow layer ice (mm)
+        tmp['snliq'] = np.copy(NOAH.snliq)  # snow layer liquid water (mm)
+        tmp['swe'] = np.copy(NOAH.swe)  # snow water equivalent (mm)
+        tmp['zsnso'] = np.copy(NOAH.zsnso)  # snow layer depth (m)
+
         # General
         tmp['errwat'] = np.copy(HB.errwat)
 
@@ -884,6 +902,7 @@ class HydroBlocks:
         fp_in = self.input_fp
 
         # Define the metadata
+        # TODO replace with reading from e.g. a csv file in directory for easy reuse
         metadata = {
             'g': {
                 'description': 'Ground heat flux',
@@ -1266,6 +1285,125 @@ class HydroBlocks:
             'alloc_gw': {
                 'description': 'Groundwater water allocated',
                 'units': 'm',
+                'dims': (
+                    'time',
+                    'hru',
+                ),
+                'precision': 4
+            },
+
+            # Snow Related
+            'fsno': {
+                'description': 'snow cover fraction',
+                'units': '',
+                'dims': (
+                    'time',
+                    'hru',
+                ),
+                'precision': 4
+            },
+            'sndpth': {
+                'description': 'snow depth',
+                'units': 'm',
+                'dims': (
+                    'time',
+                    'hru',
+                ),
+                'precision': 4
+            },
+            'sneqvo': {
+                'description': 'snow mass at last time step',
+                'units': 'mm h2o',
+                'dims': (
+                    'time',
+                    'hru',
+                ),
+                'precision': 4
+            },
+            'albold': {
+                'description': 'snow albedo at last time step',
+                'units': '',
+                'dims': (
+                    'time',
+                    'hru',
+                ),
+                'precision': 4
+            },
+            'qsnow': {
+                'description': 'snowfall on the ground',
+                'units': 'mm/s',
+                'dims': (
+                    'time',
+                    'hru',
+                ),
+                'precision': 4
+            },
+            'qsnbot': {
+                'description': 'snowmelt out bottom of pack',
+                'units': 'mm/s',
+                'dims': (
+                    'time',
+                    'hru',
+                ),
+                'precision': 4
+            },
+            'ponding': {
+                'description': 'snowmelt with no pack',
+                'units': 'mm',
+                'dims': (
+                    'time',
+                    'hru',
+                ),
+                'precision': 4
+            },
+            'ponding1': {
+                'description': 'snowmelt with no pack',
+                'units': 'mm',
+                'dims': (
+                    'time',
+                    'hru',
+                ),
+                'precision': 4
+            },
+            'ponding2': {
+                'description': 'snowmelt with no pack',
+                'units': 'mm',
+                'dims': (
+                    'time',
+                    'hru',
+                ),
+                'precision': 4
+            },
+            'zsnso': {
+                'description': 'snow layer depth',
+                'units': 'm',
+                'dims': (
+                    'time',
+                    'hru',
+                ),
+                'precision': 4
+            },
+            'snice': {
+                'description': 'snow layer ice',
+                'units': 'mm',
+                'dims': (
+                    'time',
+                    'hru',
+                ),
+                'precision': 4
+            },
+            'snliq': {
+                'description': 'snow layer liquid water',
+                'units': 'mm',
+                'dims': (
+                    'time',
+                    'hru',
+                ),
+                'precision': 4
+            },
+            'ficeold': {
+                'description': 'snow layer ice fraction',
+                'units': '',
                 'dims': (
                     'time',
                     'hru',
