@@ -907,6 +907,7 @@ class HydroBlocks:
 
         # Define the metadata
         # TODO replace with reading from e.g. a csv file in directory for easy reuse
+        # TODO put in a check vs all the input variables whether they're supported
         metadata = {
             'g': {
                 'description': 'Ground heat flux',
@@ -1377,43 +1378,43 @@ class HydroBlocks:
                     'hru',
                 ),
                 'precision': 4
-            },
-            'zsnso': {
-                'description': 'snow layer depth',
-                'units': 'm',
-                'dims': (
-                    'time',
-                    'hru',
-                ),
-                'precision': 4
-            },
-            'snice': {
-                'description': 'snow layer ice',
-                'units': 'mm',
-                'dims': (
-                    'time',
-                    'hru',
-                ),
-                'precision': 4
-            },
-            'snliq': {
-                'description': 'snow layer liquid water',
-                'units': 'mm',
-                'dims': (
-                    'time',
-                    'hru',
-                ),
-                'precision': 4
-            },
-            'ficeold': {
-                'description': 'snow layer ice fraction',
-                'units': '',
-                'dims': (
-                    'time',
-                    'hru',
-                ),
-                'precision': 4
-            }
+            }  # ,
+            # 'zsnso': {
+            #     'description': 'snow layer depth',
+            #     'units': 'm',
+            #     'dims': (
+            #         'time',
+            #         'hru',
+            #     ),
+            #     'precision': 4
+            # },
+            # 'snice': {
+            #     'description': 'snow layer ice',
+            #     'units': 'mm',
+            #     'dims': (
+            #         'time',
+            #         'hru',
+            #     ),
+            #     'precision': 4
+            # },
+            # 'snliq': {
+            #     'description': 'snow layer liquid water',
+            #     'units': 'mm',
+            #     'dims': (
+            #         'time',
+            #         'hru',
+            #     ),
+            #     'precision': 4
+            # },
+            # 'ficeold': {
+            #     'description': 'snow layer ice fraction',
+            #     'units': '',
+            #     'dims': (
+            #         'time',
+            #         'hru',
+            #     ),
+            #     'precision': 4
+            # }
         }
 
         # Create the dimensions
