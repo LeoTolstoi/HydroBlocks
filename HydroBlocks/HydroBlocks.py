@@ -873,8 +873,12 @@ class HydroBlocks:
                 self.output[var] = np.zeros((sep, shp[1]))
         # Fill the data (MISSING!)
         val = itime % sep
-        for var in self.metadata['output']['vars']:
-            self.output[var][val, :] = tmp[var]
+        try:
+            for var in self.metadata['output']['vars']:
+                self.output[var][val, :] = tmp[var]
+        except ValueError as e:
+            print(f'Valueerror for {var} at {val}')
+            raise ValueError(e)
         # self.output[itime] =
         if (itime + 1) % sep == 0:
             for var in self.metadata['output']['vars']:
@@ -1425,11 +1429,18 @@ class HydroBlocks:
         print('Creating the data group', flush=True)
         grp = fp_out.createGroup('data')
         for var in self.metadata['output']['vars']:
-            ncvar = grp.createVariable(var,
-                                       'f4',
-                                       metadata[var]['dims'],
-                                       least_significant_digit=metadata[var]
-                                       ['precision'])  # ,zlib=True)
+            try:
+                ncvar = grp.createVariable(
+                    var,
+                    'f4',
+                    metadata[var]['dims'],
+                    least_significant_digit=metadata[var]
+                    ['precision'])  # ,zlib=True)
+            except KeyError as e:
+                print(f'Variable {var} not found in metadata')
+                print(metadata.keys())
+                raise KeyError(e)
+
             ncvar.description = metadata[var]['description']
             ncvar.units = metadata[var]['units']
 
