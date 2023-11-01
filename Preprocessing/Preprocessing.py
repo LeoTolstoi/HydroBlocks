@@ -1988,6 +1988,7 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
     fdate = info['time_info']['enddate']
     dt = info['time_info']['dt']
     nt = int(3600 * 24 / dt) * ((fdate - idate).days + 1)
+    print(nt, dt, fdate - idate, int(3600 * 24 / dt))
 
     # Create structured array
     meteorology = {}
@@ -2023,8 +2024,16 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
         str_step = fp.variables[time_var].units
         if str_step.startswith('hours'):
             nc_step = int(1)
+            nc_time_duration = int(1)
         elif 'h' in str_step:
             nc_step = int(str_step.split(' ')[0].split('h')[0])
+            nc_time_duration = int(nc_step)
+        elif str_step.startswith('days'):
+            nc_step = int(1)
+            nc_time_duration = int(24)
+        elif 'days' in str_step:
+            nc_step = int(str_step.split(' ')[0].split('days')[0])
+            nc_time_duration = int(24 * nc_step)
         else:
             raise ValueError(f'Unsupported time step description: {str_step}')
 
@@ -2053,7 +2062,8 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
                               int(nc_idate[2]))
         ]
         for it in range(1, nc_nt):
-            dates.append(dates[0] + datetime.timedelta(hours=it * nc_step))
+            dates.append(dates[0] +
+                         datetime.timedelta(hours=it * nc_time_duration))
         dates = np.array(dates)
         startdate = info['time_info']['startdate']
         enddate = info['time_info']['enddate']
@@ -2067,20 +2077,26 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
             raise ValueError(
                 'Last date in meteorology file is before enddate given'
                 f'\nEnddate: {enddate}, last date: {dataset_end}'
-                f'\nMeteo-Startdate: {nc_idate} Timestep [h]: {nc_step} Num TP: {nc_nt}'
-                f' Expected end date: {dates[0] + datetime.timedelta(hours=nc_nt * nc_step)}'
+                f'\nMeteo-Startdate: {nc_idate} Timestep [h]: {nc_time_duration} Num TP: {nc_nt}'
+                f' Expected end date: {dates[0] + datetime.timedelta(hours=nc_nt * nc_time_duration)}'
             )
 
         if dates[-1] < enddate:
             raise ValueError(
                 'Last date in meteorology mask is before enddate given'
                 f'\nEnddate: {enddate}, last date: {dates[-1]}'
-                f'\nMeteo-Startdate: {nc_idate} Timestep [h]: {nc_step} Num TP: {nc_nt}'
-                f' Expected end date: {dates[0] + datetime.timedelta(hours=nc_nt * nc_step)}'
+                f'\nMeteo-Startdate: {nc_idate} Timestep [h]: {nc_time_duration} Num TP: {nc_nt}'
+                f' Expected end date: {dates[0] + datetime.timedelta(hours=nc_nt * nc_time_duration)}'
             )
 
         mask_dates = (dates >= startdate) & (dates <= enddate)
-        data = np.ma.getdata(fp.variables[var][mask_dates, :, :])
+        try:
+            data = np.ma.getdata(fp.variables[var][mask_dates, :, :])
+        except KeyError as e:
+            raise KeyError(
+                f'Error in meteorology assignment: variable {var} not found in '
+                f'file {file}'
+                f'\nVariables in file: {fp.variables.keys()}')
         fp.close()
 
         if data.shape[0] == 0:
