@@ -1438,8 +1438,8 @@ class HydroBlocks:
                     least_significant_digit=metadata[var]
                     ['precision'])  # ,zlib=True)
             except KeyError as e:
-                print(f'Variable {var} not found in metadata')
-                print(metadata.keys())
+                print(f'\nVariable {var} not found in metadata')
+                print(metadata.keys(), '\n')
                 raise KeyError(e)
 
             ncvar.description = metadata[var]['description']

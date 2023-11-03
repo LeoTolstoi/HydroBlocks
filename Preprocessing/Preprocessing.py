@@ -1988,7 +1988,6 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
     fdate = info['time_info']['enddate']
     dt = info['time_info']['dt']
     nt = int(3600 * 24 / dt) * ((fdate - idate).days + 1)
-    print(nt, dt, fdate - idate, int(3600 * 24 / dt))
 
     # Create structured array
     meteorology = {}
