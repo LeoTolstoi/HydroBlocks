@@ -2036,6 +2036,13 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
         else:
             raise ValueError(f'Unsupported time step description: {str_step}')
 
+        # checks for timestep consistency
+        if nc_time_duration * 3600 % dt != 0:
+            raise ValueError(
+                'Non-congruent time steps: Set is not equal a multiple of input data\n'
+                f'Input Data: {nc_time_duration*3600}\n'
+                f'Config File: {dt}')
+
         if 'since' == fp.variables[time_var].units.split(' ')[1]:
             nc_idate = np.array(
                 fp.variables[time_var].units.split(' ')[2].split('-'))
