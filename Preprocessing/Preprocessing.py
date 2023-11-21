@@ -391,12 +391,18 @@ def export_model(hydroblocks_info, workspace, output, icatch, wbd):
     hru_map[np.isnan(hru_map) == 1] = metadata['nodata']
     hmca[:] = hru_map
 
+    # use the output path for the mapping files - allows multiple runs to use the
+    # same workspace directory
+    # TODO give some kind of run prefix in the settings to work from for non-duplicate names for different runs
+    output_path = os.path.split(hydroblocks_info['input_fp'])[0]
+
     # Write out the mapping
     with rasterio.open(wbd['files']['mask']) as src:
         meta_mask = src.meta.copy()
         meta_mask['nodata'] = -9999.0
 
-    file_ca = f'{workspace}/hru_mapping_ea.tif'
+    # file_ca = f'{workspace}/hru_mapping_ea.tif'
+    file_ca = f'{output_path}/hru_mapping_ea.tif'
     with rasterio.open(file_ca,
                        "w",
                        **meta_mask,
@@ -410,7 +416,8 @@ def export_model(hydroblocks_info, workspace, output, icatch, wbd):
     nhru_ea = np.unique(hru_map[hru_map != -9999]).size
 
     # Map the mapping to regular lat/lon
-    file_ll = f'{workspace}/hru_mapping_latlon.tif'
+    # file_ll = f'{workspace}/hru_mapping_latlon.tif'
+    file_ll = f'{output_path}/hru_mapping_latlon.tif'
     os.system(f'rm -f {file_ll}')
     res = wbd['bbox']['res']
     minlat = wbd['bbox']['minlat']
