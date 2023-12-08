@@ -2152,6 +2152,7 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
                     'that meteo data is of unequal lengths or'
                     'that meteo data does not end at the end of the day.\n')
             # print data_var,np.unique(meteorology[data_var][:,:])
+            gc.collect()
 
         # Write the meteorology to the netcdf file (single chunk for now...)
         grp = hydroblocks_info['input_fp'].groups['meteorology']
