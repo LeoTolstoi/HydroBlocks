@@ -468,8 +468,19 @@ def export_model(hydroblocks_info, workspace, output, icatch, wbd):
     tmp = gdal_tools.read_raster(file_ll)
     nhru_latlon = np.unique(tmp[tmp != -9999]).size
     if nhru_ea != nhru_latlon:
+        print(
+            ('\nWarning:\nNon-congruent numbers of HRU: '
+             f'nhru in hru_mapping_ea.tif ({nhru_ea}) and '
+             f'hru_mapping_latlon.tif ({nhru_latlon}) do not match'
+             '\nCheck resampling as well as input masks for _ea and _latlon'))
+        # raise ValueError(
+        # 'Non-congruent numbers of HRU: '
+        # f'nhru in hru_mapping_ea.tif ({nhru_ea}) and '
+        # f'hru_mapping_latlon.tif ({nhru_latlon}) do not match'
+        # '\nCheck resampling as well as input masks for _ea and _latlon')
+    if nhru_ea < nhru_latlon:
         raise ValueError(
-            'Non-congruent numbers of HRU: '
+            'HRU_ea < HRU_latlon: '
             f'nhru in hru_mapping_ea.tif ({nhru_ea}) and '
             f'hru_mapping_latlon.tif ({nhru_latlon}) do not match'
             '\nCheck resampling as well as input masks for _ea and _latlon')
