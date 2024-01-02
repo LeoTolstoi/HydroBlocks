@@ -486,7 +486,8 @@ def export_model(hydroblocks_info, workspace, output, icatch, wbd):
             '\nCheck resampling as well as input masks for _ea and _latlon')
 
     # Write a map for the catchment id
-    file_icatch = '%s/icatch_latlon.tif' % workspace
+    # file_icatch = '%s/icatch_latlon.tif' % workspace
+    file_icatch = f'{model_data_part}_icatch_latlon.tif'
     metadata = gdal_tools.retrieve_metadata(file_ll)
     metadata['nodata'] = -9999.0
     tmp = gdal_tools.read_raster(file_ll)
@@ -2202,6 +2203,11 @@ def Prepare_Water_Use_Semidistributed(workspace, wbd, OUTPUT, input_dir, info,
 
     # Define the mapping directory
     mapping_info = {}
+
+    # use the output path for the mapping files - allows multiple runs to use the
+    # same workspace directory
+    # TODO give some kind of run prefix in the settings to work from for non-duplicate names for different runs
+    model_data_part = hydroblocks_info['input_file'][:-3]
 
     # Calculate the fine to coarse scale mapping
     for data_var in wbd['files_water_use']:
