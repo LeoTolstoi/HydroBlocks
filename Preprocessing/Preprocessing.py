@@ -381,7 +381,8 @@ def export_model(hydroblocks_info, workspace, output, icatch, wbd):
     grp = fp.createGroup('conus_albers_mapping')
     grp.createDimension('nx', metadata['nx'])
     grp.createDimension('ny', metadata['ny'])
-    hmca = grp.createVariable('hmca', 'f4', ('ny', 'nx'))  # ,zlib=True)
+    hmca = grp.createVariable('hmca', 'f4', ('ny', 'nx'),
+                              compression="zstd")  # ,zlib=True)
     hmca.gt = metadata['gt']
     hmca.projection = metadata['projection']
     hmca.description = 'HRU mapping (conus albers)'
@@ -501,9 +502,15 @@ def export_model(hydroblocks_info, workspace, output, icatch, wbd):
     grp = fp.createGroup('wmatrix')
     grp.createDimension('connections_columns', wmatrix.indices.size)
     grp.createDimension('connections_rows', wmatrix.indptr.size)
-    grp.createVariable('data', 'f4', ('connections_columns', ))
-    grp.createVariable('indices', 'f4', ('connections_columns', ))
-    grp.createVariable('indptr', 'f4', ('connections_rows', ))
+    grp.createVariable('data',
+                       'f4', ('connections_columns', ),
+                       compression="zstd")
+    grp.createVariable('indices',
+                       'f4', ('connections_columns', ),
+                       compression="zstd")
+    grp.createVariable('indptr',
+                       'f4', ('connections_rows', ),
+                       compression="zstd")
     grp.variables['data'][:] = wmatrix.data
     grp.variables['indices'][:] = wmatrix.indices
     grp.variables['indptr'][:] = wmatrix.indptr
@@ -529,7 +536,9 @@ def export_model(hydroblocks_info, workspace, output, icatch, wbd):
         grp.variables[var][:] = data['hru'][var]
 
     if hydroblocks_info['water_management']['hwu_flag']:
-        grp.createVariable('hru_min_dist', 'f4', ('hru', 'hru'))  # ,zlib=True)
+        grp.createVariable('hru_min_dist',
+                           'f4', ('hru', 'hru'),
+                           compression="zstd")  # ,zlib=True)
         grp.variables['hru_min_dist'][:] = data['hru']['hru_min_dist']
 
     # Remove info from output
@@ -2168,7 +2177,8 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
 
         # Write the meteorology to the netcdf file (single chunk for now...)
         grp = hydroblocks_info['input_fp'].groups['meteorology']
-        grp.createVariable(var, 'f4', ('time', 'hru'))  # ,zlib=True)
+        grp.createVariable(var, 'f4', ('time', 'hru'),
+                           compression="zstd")  # ,zlib=True)
         grp.variables[data_var][:] = meteorology[data_var][:]
         gc.collect()
 
@@ -2180,7 +2190,7 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
         dates.append(date)
         date = date + datetime.timedelta(seconds=dt)
     dates = np.array(dates)
-    var = grp.createVariable('time', 'f8', ('time', ))
+    var = grp.createVariable('time', 'f8', ('time', ), compression="zstd")
     var.units = 'hours since %4d-01-01' % idate.year
     var.calendar = 'standard'
     dates = nc.date2num(dates, units=var.units, calendar=var.calendar)
@@ -2375,7 +2385,8 @@ def Prepare_Water_Use_Semidistributed(workspace, wbd, OUTPUT, input_dir, info,
 
         # Write the water use the netcdf file (single chunk for now...)
         grp = hydroblocks_info['input_fp'].groups['water_use']
-        grp.createVariable(var, 'f4', ('time', 'hru'))  # ,zlib=True)
+        grp.createVariable(var, 'f4', ('time', 'hru'),
+                           compression="zstd")  # ,zlib=True)
         grp.variables[data_var][:] = water_use[data_var][:]
 
     if hydroblocks_info['water_management']['hwu_flag']:
@@ -2387,7 +2398,9 @@ def Prepare_Water_Use_Semidistributed(workspace, wbd, OUTPUT, input_dir, info,
                 dates.append(date)
                 date = date + datetime.timedelta(seconds=dt)
             dates = np.array(dates)
-            var = grp.createVariable('time', 'f8', ('time', ))
+            var = grp.createVariable('time',
+                                     'f8', ('time', ),
+                                     compression="zstd")
             var.units = 'hours since %4d-01-01' % idate.year
             var.calendar = 'standard'
             dates = nc.date2num(dates, units=var.units, calendar=var.calendar)

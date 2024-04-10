@@ -1435,8 +1435,8 @@ class HydroBlocks:
                     var,
                     'f4',
                     metadata[var]['dims'],
-                    least_significant_digit=metadata[var]
-                    ['precision'])  # ,zlib=True)
+                    least_significant_digit=metadata[var]['precision'],
+                    compression="zstd")  # ,zlib=True)
             except KeyError as e:
                 print(f'\nVariable {var} not found in metadata')
                 print(metadata.keys(), '\n')
@@ -1450,24 +1450,26 @@ class HydroBlocks:
         grp = fp_out.createGroup('metadata')
         # Time
         grp.createVariable('time', 'f8', ('time', ))
-        dates = grp.createVariable('date', 'f8', ('time', ))
+        dates = grp.createVariable('date',
+                                   'f8', ('time', ),
+                                   compression="zstd")
         dates.units = 'hours since 1900-01-01'
         dates.calendar = 'standard'
 
         # HRU percentage coverage
         print('Setting the HRU percentage coverage', flush=True)
-        pcts = grp.createVariable('pct', 'f4', ('hru', ))
+        pcts = grp.createVariable('pct', 'f4', ('hru', ), compression="zstd")
         pcts[:] = fp_in.groups['parameters'].variables['area_pct'][:]
         pcts.description = 'hru percentage coverage'
         pcts.units = '%'
 
         # HRU area
         print('Setting the HRU areal coverage', flush=True)
-        area = grp.createVariable('area', 'f4', ('hru', ))
+        area = grp.createVariable('area', 'f4', ('hru', ), compression="zstd")
         area[:] = fp_in.groups['parameters'].variables['area'][:]
         area.units = 'meters squared'
         print('Defining the HRU ids', flush=True)
-        hru = grp.createVariable('hru', 'i4', ('hru', ))
+        hru = grp.createVariable('hru', 'i4', ('hru', ), compression="zstd")
         hrus = []
         for value in range(nhru):
             hrus.append(value)
