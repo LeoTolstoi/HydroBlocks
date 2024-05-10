@@ -1861,7 +1861,10 @@ def Create_Clusters_And_Connections(workspace, wbd, output, input_dir, info,
     covariates['hand'] = hand
     hydroblocks_info['nhru'] = nhru
 
-    # Create the netcdf file
+    # Create the netcdf file (but first check if the directory exists )
+    directory = os.path.dirname(hydroblocks_info['input_file'])
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     file_netcdf = hydroblocks_info['input_file']
     hydroblocks_info['input_fp'] = nc.Dataset(file_netcdf,
                                               'w',
