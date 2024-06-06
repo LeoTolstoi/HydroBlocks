@@ -27,27 +27,39 @@ def assign_string(nelem, pstring):
     return tmp
 
 
-def initialize(info):
+def initialize(info, flag_log: bool, f_log):
 
-    HB = HydroBlocks(info)
+    HB = HydroBlocks(info, flag_log, f_log)
 
     return HB
 
 
 class HydroBlocks:
 
-    def __init__(self, info):
+    def __init__(self, info, flag_log: bool, f_log):
 
         # Read in general information
         self.general_information(info)
 
         # Initialize Noah-MP
         print("Initializing Noah-MP", flush=True)
-        self.initialize_noahmp()
+        t_start = datetime.datetime.now()
+        if flag_log:
+            f_log.write(f"   - NOAH-MP Init:\n")
+        self.initialize_noahmp(flag_log, f_log)
+        if flag_log:
+            f_log.write(
+                f"     Init Overall: {datetime.datetime.now() - t_start}\n")
 
         # Initialize subsurface module
         print("Initializing subsurface module", flush=True)
+        t_start = datetime.datetime.now()
+        if flag_log:
+            f_log.write(f"   - Subsurface Init:\n")
         self.initialize_subsurface()
+        if flag_log:
+            f_log.write("     Subsurface Init Overall: "
+                        f"{datetime.datetime.now() - t_start}\n")
 
         # -- Needs to be completed -- Noemi
         # Initialize human water use module
@@ -55,6 +67,9 @@ class HydroBlocks:
         # self.initialize_hwu(info)
 
         # Other metrics
+        t_start = datetime.datetime.now()
+        if flag_log:
+            f_log.write(f"   - Other Metrics Init:\n")
         self.dE = 0.0
         self.r = 0.0
         self.dr = 0.0
@@ -70,9 +85,18 @@ class HydroBlocks:
         self.beg_wb = np.zeros(self.nhru, dtype=np.float32)
         self.end_wb = np.zeros(self.nhru, dtype=np.float32)
         self.itime = 0
+        if flag_log:
+            f_log.write("     Other Metrics Init Overall: "
+                        f"{datetime.datetime.now() - t_start}\n")
 
         # Restart from initial conditions?
+        t_start = datetime.datetime.now()
+        if flag_log:
+            f_log.write(f"   - Restart:\n")
         self.restart()
+        if flag_log:
+            f_log.write("     Restart Overall: "
+                        f"{datetime.datetime.now() - t_start}\n")
 
         return
 
@@ -192,7 +216,7 @@ class HydroBlocks:
 
         return
 
-    def initialize_noahmp(self, ):
+    def initialize_noahmp(self, flag_log: bool, f_log):
 
         # Initialize noahmp
         import pyNoahMP.NoahMP
@@ -206,14 +230,19 @@ class HydroBlocks:
 
         # Allocate memory
         # 1d,integer
+        t_start = datetime.datetime.now()
         vars = [
             'isnow', 'isurban', 'slopetyp', 'soiltyp', 'vegtyp', 'ice', 'isc',
             'ist', 'root_depth'
         ]
         for var in vars:
             exec(f'self.noahmp.{var} = np.zeros(self.nhru).astype(np.int32)')
+        if flag_log:
+            f_log.write("     Allocate Memory (1d, int) Overall: "
+                        f"{datetime.datetime.now() - t_start}\n")
 
         # 1d,real
+        t_start = datetime.datetime.now()
         vars = [
             'z_ml', 'lwdn', 'swdn', 'p_ml', 'psfc', 'prcp', 't_ml', 'q_ml',
             'u_ml', 'v_ml', 'fsh', 'ssoil', 'salb', 'fsno', 'swe', 'sndpth',
@@ -235,8 +264,12 @@ class HydroBlocks:
         ]
         for var in vars:
             exec(f'self.noahmp.{var} = np.zeros(self.nhru).astype(np.float32)')
+        if flag_log:
+            f_log.write("     Allocate Memory (1d, real) Overall: "
+                        f"{datetime.datetime.now() - t_start}\n")
 
         # 2d,real
+        t_start = datetime.datetime.now()
         # vars = ['stc','sh2o','smc','smceq','zsnso','snice','snliq','ficeold','zsoil','sldpth','hdiv']
         vars = ['sh2o', 'smc', 'smceq', 'zsoil', 'sldpth', 'hdiv']
         for var in vars:
@@ -255,8 +288,12 @@ class HydroBlocks:
                                      order='F').astype(np.float32)
         self.noahmp.ficeold = np.zeros((self.nhru, self.noahmp.nsnow),
                                        order='F').astype(np.float32)
+        if flag_log:
+            f_log.write("     Allocate Memory (2d, real) Overall: "
+                        f"{datetime.datetime.now() - t_start}\n")
 
         # Define data
+        t_start = datetime.datetime.now()
         self.noahmp.llanduse = 'MODIFIED_IGBP_MODIS_NOAH'
         # assign_string(self.noahmp.llanduse.dtype,'MODIFIED_IGBP_MODIS_NOAH')
         self.noahmp.lsoil = 'CUST'
@@ -293,19 +330,30 @@ class HydroBlocks:
         self.noahmp.zsoil = -np.cumsum(self.noahmp.sldpth[:], axis=1)
         self.noahmp.zsnso[:] = 0.0
         self.noahmp.zsnso[:, self.noahmp.nsnow:] = self.noahmp.zsoil[:]
+        if flag_log:
+            f_log.write("     Define Data, Main Settings Overall: "
+                        f"{datetime.datetime.now() - t_start}\n")
 
         # Set all to land (can include lake in the future...)
+        t_start = datetime.datetime.now()
         lc = self.input_fp.groups['parameters'].variables['land_cover'][:]
         ist = np.copy(lc).astype(np.int32)
         ist[:] = 1
         ist[lc == 17] = 2
         self.noahmp.ist[:] = ist[:]  # 1
         self.noahmp.isurban[:] = 13
+        if flag_log:
+            f_log.write("     Define Data, Landcover Overall: "
+                        f"{datetime.datetime.now() - t_start}\n")
+
         # Set soil color
+        t_start = datetime.datetime.now()
         self.noahmp.isc[:] = 4  # 4
         self.noahmp.ice[:] = 0
+
         # Initialize snow info
         self.noahmp.isnow[:] = 0
+
         # Others
         self.noahmp.dx = self.dx
         self.noahmp.ice[:] = 0
@@ -342,7 +390,12 @@ class HydroBlocks:
         self.noahmp.stc[:] = 285.0
         self.noahmp.slopetyp[:] = 3
         self.noahmp.albold[:] = 0.5
+        if flag_log:
+            f_log.write("     Define Data, Soils and other Params Overall: "
+                        f"{datetime.datetime.now() - t_start}\n")
+
         # Define the data
+        t_start = datetime.datetime.now()
         self.noahmp.vegtyp[:] = self.input_fp.groups['parameters'].variables[
             'land_cover'][:]
         self.noahmp.soiltyp[:] = np.arange(1, self.noahmp.ncells + 1)
@@ -360,7 +413,12 @@ class HydroBlocks:
             # self.noahmp.sh2o[:,ilayer] = self.input_fp.groups['parameters'].variables['REFSMC'][:] # Noemi, start at REFSMC
         self.noahmp.smc[:] = self.noahmp.sh2o[:]
         self.noahmp.smcwtd[:] = self.noahmp.sh2o[:, 0]
+        if flag_log:
+            f_log.write("     Define Data, Input Params Overall: "
+                        f"{datetime.datetime.now() - t_start}\n")
+
         # Initialize the soil parameters
+        t_start = datetime.datetime.now()
         self.noahmp.bb0[:] = self.input_fp.groups['parameters'].variables[
             'BB'][:]
         self.noahmp.drysmc0[:] = self.input_fp.groups['parameters'].variables[
@@ -380,14 +438,22 @@ class HydroBlocks:
             'WLTSMC'][:]
         self.noahmp.qtz0[:] = self.input_fp.groups['parameters'].variables[
             'QTZ'][:]
+        if flag_log:
+            f_log.write("     Initialize Soil Parameters Overall: "
+                        f"{datetime.datetime.now() - t_start}\n")
 
         # Set lat/lon (declination calculation)
+        t_start = datetime.datetime.now()
         self.noahmp.lat[:] = 0.0174532925 * self.input_fp.groups[
             'metadata'].latitude
         self.noahmp.lon[:] = 0.0174532925 * self.input_fp.groups[
             'metadata'].longitude
+        if flag_log:
+            f_log.write("     Set lat/lon Overall: "
+                        f"{datetime.datetime.now() - t_start}\n")
 
         # Initialize output
+        t_start = datetime.datetime.now()
         self.noahmp.tg[:] = 285.0
         self.noahmp.tv[:] = 285.0
         for ilayer in range(self.noahmp.nsnow, self.noahmp.stc.shape[1]):
@@ -397,12 +463,17 @@ class HydroBlocks:
         self.noahmp.t2mb[:] = 285.0
         self.noahmp.runsf[:] = 0.0
         self.noahmp.runsb[:] = 0.0
+        if flag_log:
+            f_log.write("     Initialize Derived Param Output Arrays: "
+                        f"{datetime.datetime.now() - t_start}\n")
+
         # forcing
         self.noahmp.fveg[:] = 1.0
         self.noahmp.fvgmax[:] = 1.0
         self.noahmp.tbot[:] = 285.0
 
         # Define the parameters
+        t_start = datetime.datetime.now()
         noah = self.noahmp
         self.noahmp.initialize_parameters(
             noah.llanduse, noah.lsoil, noah.vegparm_file, noah.genparm_file,
@@ -412,6 +483,9 @@ class HydroBlocks:
             noah.mptable_file, noah.bb0, noah.drysmc0, noah.f110, noah.maxsmc0,
             noah.refsmc0, noah.satpsi0, noah.satdk0, noah.satdw0, noah.wltsmc0,
             noah.qtz0)
+        if flag_log:
+            f_log.write("     Initialize NOAH internal Params: "
+                        f"{datetime.datetime.now() - t_start}\n")
 
         return
 
@@ -1435,8 +1509,8 @@ class HydroBlocks:
                     var,
                     'f4',
                     metadata[var]['dims'],
-                    least_significant_digit=metadata[var]['precision'],
-                    compression="zstd")  # ,zlib=True)
+                    least_significant_digit=metadata[var]['precision'])  # ,
+                # compression="zstd")  # ,zlib=True)
             except KeyError as e:
                 print(f'\nVariable {var} not found in metadata')
                 print(metadata.keys(), '\n')
@@ -1450,26 +1524,28 @@ class HydroBlocks:
         grp = fp_out.createGroup('metadata')
         # Time
         grp.createVariable('time', 'f8', ('time', ))
-        dates = grp.createVariable('date',
-                                   'f8', ('time', ),
-                                   compression="zstd")
+        dates = grp.createVariable('date', 'f8', ('time', ))  #,
+        # compression="zstd")
         dates.units = 'hours since 1900-01-01'
         dates.calendar = 'standard'
 
         # HRU percentage coverage
         print('Setting the HRU percentage coverage', flush=True)
-        pcts = grp.createVariable('pct', 'f4', ('hru', ), compression="zstd")
+        pcts = grp.createVariable('pct', 'f4',
+                                  ('hru', ))  #, compression="zstd")
         pcts[:] = fp_in.groups['parameters'].variables['area_pct'][:]
         pcts.description = 'hru percentage coverage'
         pcts.units = '%'
 
         # HRU area
         print('Setting the HRU areal coverage', flush=True)
-        area = grp.createVariable('area', 'f4', ('hru', ), compression="zstd")
+        area = grp.createVariable('area', 'f4',
+                                  ('hru', ))  #, compression="zstd")
         area[:] = fp_in.groups['parameters'].variables['area'][:]
         area.units = 'meters squared'
         print('Defining the HRU ids', flush=True)
-        hru = grp.createVariable('hru', 'i4', ('hru', ), compression="zstd")
+        hru = grp.createVariable('hru', 'i4',
+                                 ('hru', ))  # , compression="zstd")
         hrus = []
         for value in range(nhru):
             hrus.append(value)

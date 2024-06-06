@@ -1,8 +1,10 @@
 import datetime
 from dateutil.relativedelta import relativedelta
-import HydroBlocks  # as HB
+import os
 import sys
 # import pickle
+
+import HydroBlocks  # as HB
 
 
 def Read_Metadata_File(file):
@@ -34,10 +36,33 @@ spin_date = datetime.datetime(metadata['spin_date']['year'],
 if metadata['spin_date']['month'] == 12:
     spin_date = spin_date + datetime.timedelta(days=1)
 
+# setup debug stuff, if needed
+if "debug_dir" in metadata.keys():
+    flag_log = True
+    debug_dir = metadata["debug_dir"]
+    if not os.path.exists(debug_dir):
+        os.makedirs(debug_dir)
+        f_log = open(debug_dir + '/_HB_model_runtime.log', 'w')
+        f_log.write('Runtime Log-file for HydroBlocks\n\n')
+else:
+    flag_log = False
+
+# pickle.dump(metadata, open(debug_dir + '/metadata.p', 'wb'))
+
+# timing setups
+t_overall = datetime.datetime.now()
+
 # Run the segments for the model
 sidate = idate
 sfdate = idate
 while sidate < fdate:
+
+    # prep for timing measurement
+    t0 = datetime.datetime.now()
+    t_start = t0
+    if flag_log:
+        f_log.write('Starting segment from ' + str(sidate) + '\n')
+
     sfdate = sidate + relativedelta(
         years=metadata['segment']['years_per_segment'])
     if sfdate > fdate:
@@ -46,12 +71,40 @@ while sidate < fdate:
     info['idate'] = sidate
     info['fdate'] = sfdate
     info['spin_date'] = spin_date
+
     # Run the model
     # Initialize
-    HB = HydroBlocks.initialize(info)
+    t_start = datetime.datetime.now()
+    if flag_log:
+        f_log.write('Initialization:')
+    HB = HydroBlocks.initialize(info, flag_log, f_log)
+    if flag_log:
+        f_log.write('   Initialization Time: ' +
+                    str(datetime.datetime.now() - t_start) + '\n')
+
     # Run the model
-    HB.run(info)
+    t_start = datetime.datetime.now()
+    if flag_log:
+        f_log.write('Model Compute:')
+    HB.run(info, flag_log, f_log)
+    if flag_log:
+        f_log.write('   Model Run Time: ' +
+                    str(datetime.datetime.now() - t_start) + '\n')
+
     # Finalize
+    t_start = datetime.datetime.now()
+    if flag_log:
+        f_log.write('Finalisation:')
     HB.finalize()
+    if flag_log:
+        f_log.write('   Finalization Time: ' +
+                    str(datetime.datetime.now() - t_start) + '\n')
+
     # Update initial time step
     sidate = sfdate
+
+# Close the log file
+if "debug_dir" in metadata.keys():
+    f_log.write('Overall runtime: ' +
+                str(datetime.datetime.now() - t_overall + '\n'))
+    f_log.close()
