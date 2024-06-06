@@ -549,42 +549,72 @@ class HydroBlocks:
 
         return
 
-    def run(self, info):
+    def run(self, info, flag_log: bool, f_log):
 
         # Run the model
         date = self.idate
         tic = time.time()
         self.noahmp.dzwt[:] = 0.0
 
+        time_update_input = datetime.timedelta(seconds=0)
+        time_init_water_balance = datetime.timedelta(seconds=0)
+        time_update = datetime.timedelta(seconds=0)
+        time_finalize_water_balance = datetime.timedelta(seconds=0)
+        time_calculate_water_balance_error = datetime.timedelta(seconds=0)
+        time_calculate_energy_balance_error = datetime.timedelta(seconds=0)
+        time_update_output = datetime.timedelta(seconds=0)
+
+        t_start_compute = datetime.datetime.now()
         while date < self.fdate:
 
             # Update input data
             # tic0 = time.time()
+            t_start = datetime.datetime.now()
             self.update_input(date)
             # print('update input',time.time() - tic0,flush=True)
+            if flag_log:
+                time_update_input += datetime.datetime.now() - t_start
 
             # Save the original precip
             precip = np.copy(self.noahmp.prcp)
 
             # Calculate initial NOAH water balance
+            t_start = datetime.datetime.now()
             self.initialize_water_balance()
+            if flag_log:
+                time_init_water_balance += datetime.datetime.now() - t_start
 
             # Update model
             # tic0 = time.time()
+            t_start = datetime.datetime.now()
             self.update(date)
             # print('update model',time.time() - tic0,flush=True)
+            if flag_log:
+                time_update += datetime.datetime.now() - t_start
 
             # Return precip to original value
             self.noahmp.prcp[:] = precip[:]
 
             # Calculate final water balance
+            t_start = datetime.datetime.now()
             self.finalize_water_balance()
+            if flag_log:
+                time_finalize_water_balance += datetime.datetime.now(
+                ) - t_start
 
             # Update the water balance error
+            t_start = datetime.datetime.now()
             self.calculate_water_balance_error()
+            if flag_log:
+                time_calculate_water_balance_error += datetime.datetime.now(
+                ) - t_start
 
             # Update the energy balance error
+            t_start = datetime.datetime.now()
             self.calculate_energy_balance_error()
+            if flag_log:
+                time_calculate_energy_balance_error += datetime.datetime.now(
+                ) - t_start
 
             # Update time and date
             self.date = date
@@ -593,7 +623,10 @@ class HydroBlocks:
             # Update output
             # tic0 = time.time()
             if self.date >= self.spin_date:
+                t_start = datetime.datetime.now()
                 self.update_output(date)
+                if flag_log:
+                    time_update_output += datetime.datetime.now() - t_start
                 # print('update output',time.time() - tic0,flush=True)
 
             # Update time step
@@ -612,7 +645,20 @@ class HydroBlocks:
                       'ENG ERR:%10.6f' % self.erreng,
                       flush=True)
 
-        return
+        # Output some statistics
+        if flag_log:
+            f_log.write(
+                f"     Update Input: {time_update_input}\n"
+                f"     Initialize Water Balance: {time_init_water_balance}\n"
+                f"     Update: {time_update}\n"
+                f"     Finalize Water Balance: {time_finalize_water_balance}\n"
+                f"     Calculate Water Balance Error: {time_calculate_water_balance_error}\n"
+                f"     Calculate Energy Balance Error: {time_calculate_energy_balance_error}\n"
+                f"     Update Output: {time_update_output}\n"
+                f"     Compute Loop: {datetime.datetime.now() - t_start_compute}\n"
+            )
+
+        pass
 
     def update_input(self, date):
 

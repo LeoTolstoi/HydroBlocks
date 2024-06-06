@@ -42,8 +42,8 @@ if "debug_dir" in metadata.keys():
     debug_dir = metadata["debug_dir"]
     if not os.path.exists(debug_dir):
         os.makedirs(debug_dir)
-        f_log = open(debug_dir + '/_HB_model_runtime.log', 'w')
-        f_log.write('Runtime Log-file for HydroBlocks\n\n')
+    f_log = open(debug_dir + '/_runtime_HydroBlocks.log', 'w')
+    f_log.write('Runtime Log-file for HydroBlocks\n')
 else:
     flag_log = False
 
@@ -61,7 +61,7 @@ while sidate < fdate:
     t0 = datetime.datetime.now()
     t_start = t0
     if flag_log:
-        f_log.write('Starting segment from ' + str(sidate) + '\n')
+        f_log.write('\nStarting segment for ' + str(sidate) + '\n')
 
     sfdate = sidate + relativedelta(
         years=metadata['segment']['years_per_segment'])
@@ -76,7 +76,7 @@ while sidate < fdate:
     # Initialize
     t_start = datetime.datetime.now()
     if flag_log:
-        f_log.write('Initialization:')
+        f_log.write('Initialization:\n')
     HB = HydroBlocks.initialize(info, flag_log, f_log)
     if flag_log:
         f_log.write('   Initialization Time: ' +
@@ -85,7 +85,7 @@ while sidate < fdate:
     # Run the model
     t_start = datetime.datetime.now()
     if flag_log:
-        f_log.write('Model Compute:')
+        f_log.write('Model Compute:\n')
     HB.run(info, flag_log, f_log)
     if flag_log:
         f_log.write('   Model Run Time: ' +
@@ -94,7 +94,7 @@ while sidate < fdate:
     # Finalize
     t_start = datetime.datetime.now()
     if flag_log:
-        f_log.write('Finalisation:')
+        f_log.write('Finalisation:\n')
     HB.finalize()
     if flag_log:
         f_log.write('   Finalization Time: ' +
@@ -104,7 +104,7 @@ while sidate < fdate:
     sidate = sfdate
 
 # Close the log file
-if "debug_dir" in metadata.keys():
+if flag_log:
     f_log.write('Overall runtime: ' +
                 str(datetime.datetime.now() - t_overall + '\n'))
     f_log.close()
