@@ -106,5 +106,5 @@ while sidate < fdate:
 # Close the log file
 if flag_log:
     f_log.write('Overall runtime: ' +
-                str(datetime.datetime.now() - t_overall + '\n'))
+                str(datetime.datetime.now() - t_overall) + '\n')
     f_log.close()
