@@ -648,13 +648,13 @@ class HydroBlocks:
         # Output some statistics
         if flag_log:
             f_log.write(
-                f"     Update Input: {time_update_input}\n"
-                f"     Initialize Water Balance: {time_init_water_balance}\n"
-                f"     Update: {time_update}\n"
-                f"     Finalize Water Balance: {time_finalize_water_balance}\n"
-                f"     Calculate Water Balance Error: {time_calculate_water_balance_error}\n"
-                f"     Calculate Energy Balance Error: {time_calculate_energy_balance_error}\n"
-                f"     Update Output: {time_update_output}\n"
+                f"     - Update Input: {time_update_input}\n"
+                f"     - Initialize Water Balance: {time_init_water_balance}\n"
+                f"     - Update: {time_update}\n"
+                f"     - Finalize Water Balance: {time_finalize_water_balance}\n"
+                f"     - Calculate Water Balance Error: {time_calculate_water_balance_error}\n"
+                f"     - Calculate Energy Balance Error: {time_calculate_energy_balance_error}\n"
+                f"     - Update Output: {time_update_output}\n"
                 f"     Compute Loop: {datetime.datetime.now() - t_start_compute}\n"
             )
 
