@@ -9,6 +9,9 @@ import scipy.sparse as sparse
 # import pickle
 # from joblib import cpu_count
 
+import netcdf_utils as ncutil
+
+
 
 def assign_string(nelem, pstring):
     # def assign_string(dtype,pstring):
@@ -1551,12 +1554,14 @@ class HydroBlocks:
         grp = fp_out.createGroup('data')
         for var in self.metadata['output']['vars']:
             try:
-                ncvar = grp.createVariable(
-                    var,
-                    'f4',
-                    metadata[var]['dims'],
-                    least_significant_digit=metadata[var]['precision'])  # ,
+                # ncvar = grp.createVariable(
+                #     var,
+                #     'f4',
+                #     metadata[var]['dims'],
+                #     least_significant_digit=metadata[var]['precision'])  # ,
                 # compression="zstd")  # ,zlib=True)
+                ncvar = ncutil.create_netcdf_variable(grp, var, 'f4', metadata[var]['dims'], 
+                                                       least_significant_digit=metadata[var]['precision'], compress=True)
             except KeyError as e:
                 print(f'\nVariable {var} not found in metadata')
                 print(metadata.keys(), '\n')

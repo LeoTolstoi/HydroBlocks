@@ -18,8 +18,10 @@ from scipy.stats import find_repeats
 
 from cv2 import dilate, getStructuringElement, MORPH_RECT
 
+# HydroBlocks related
 from geospatialtools import gdal_tools
 import terrain_tools as terrain_tools
+import netcdf_utils as ncutil
 
 # Visualisation
 import matplotlib.colors as colors
@@ -381,8 +383,9 @@ def export_model(hydroblocks_info, workspace, output, icatch, wbd):
     grp = fp.createGroup('conus_albers_mapping')
     grp.createDimension('nx', metadata['nx'])
     grp.createDimension('ny', metadata['ny'])
-    hmca = grp.createVariable('hmca', 'f4', ('ny', 'nx'))  # ,
-    # compression="zstd")  # ,zlib=True)
+    # hmca = grp.createVariable('hmca', 'f4', ('ny', 'nx'))  # ,
+    # # compression="zstd")  # ,zlib=True)
+    hmca = ncutil.create_netcdf_variable(grp, 'hmca', 'f4', ('ny', 'nx'), compress=True)
     hmca.gt = metadata['gt']
     hmca.projection = metadata['projection']
     hmca.description = 'HRU mapping (conus albers)'
@@ -529,12 +532,14 @@ def export_model(hydroblocks_info, workspace, output, icatch, wbd):
             vars.append(var)
 
     for var in vars:
-        grp.createVariable(var, 'f4', ('hru', ))  # ,zlib=True)
+        # grp.createVariable(var, 'f4', ('hru', ))  # ,zlib=True)
+        tmp_var = ncutil.create_netcdf_variable(grp, var, 'f4', ('hru', ), compress=True)
         grp.variables[var][:] = data['hru'][var]
 
     if hydroblocks_info['water_management']['hwu_flag']:
-        grp.createVariable('hru_min_dist', 'f4', ('hru', 'hru'))  #,
-        # compression="zstd")  # ,zlib=True)
+        # grp.createVariable('hru_min_dist', 'f4', ('hru', 'hru'))  #,
+        # # compression="zstd")  # ,zlib=True)
+        tmp_var = ncutil.create_netcdf_variable(grp, 'hru_min_dist', 'f4', ('hru', 'hru'), compress=True)
         grp.variables['hru_min_dist'][:] = data['hru']['hru_min_dist']
 
     # Remove info from output
@@ -2176,14 +2181,15 @@ def Prepare_Meteorology_Semidistributed(workspace, wbd, OUTPUT, input_dir,
 
         # Write the meteorology to the netcdf file (single chunk for now...)
         grp = hydroblocks_info['input_fp'].groups['meteorology']
-        grp.createVariable(var, 'f4', ('time', 'hru'))  # ,
-        # compression="zstd")  # ,zlib=True)
+        # grp.createVariable(var, 'f4', ('time', 'hru'))  # ,
+        # # compression="zstd")  # ,zlib=True)
+        tmpvar = ncutil.create_netcdf_variable(grp, var, 'f4', ('time', 'hru'), compress=True)
         grp.variables[data_var][:] = meteorology[data_var][:]
         gc.collect()
 
     # Add time information
     print('   Adding time data', flush=True)
-    dates = []
+    dates = [] 
     date = idate
     while date <= fdate:
         dates.append(date)
@@ -2384,8 +2390,9 @@ def Prepare_Water_Use_Semidistributed(workspace, wbd, OUTPUT, input_dir, info,
 
         # Write the water use the netcdf file (single chunk for now...)
         grp = hydroblocks_info['input_fp'].groups['water_use']
-        grp.createVariable(var, 'f4', ('time', 'hru'))  # ,
-        # compression="zstd")  # ,zlib=True)
+        # grp.createVariable(var, 'f4', ('time', 'hru'))  # ,
+        # # compression="zstd")  # ,zlib=True)
+        tmpvar = ncutil.create_netcdf_variable(grp, var, 'f4', ('time', 'hru'), compress=True)
         grp.variables[data_var][:] = water_use[data_var][:]
 
     if hydroblocks_info['water_management']['hwu_flag']:
