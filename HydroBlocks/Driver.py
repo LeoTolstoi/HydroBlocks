@@ -101,10 +101,13 @@ while sidate < fdate:
                     str(datetime.datetime.now() - t_start) + '\n')
 
     # Update initial time step
+    if flag_log:
+        f_log.write('Segment Compute Time: ' +
+                    str(datetime.datetime.now() - t0) + '\n')
     sidate = sfdate
 
 # Close the log file
 if flag_log:
-    f_log.write('Overall runtime: ' +
+    f_log.write('\nOverall runtime: ' +
                 str(datetime.datetime.now() - t_overall) + '\n')
     f_log.close()

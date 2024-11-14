@@ -12,7 +12,6 @@ import scipy.sparse as sparse
 import netcdf_utils as ncutil
 
 
-
 def assign_string(nelem, pstring):
     # def assign_string(dtype,pstring):
 
@@ -48,7 +47,7 @@ class HydroBlocks:
         print("Initializing Noah-MP", flush=True)
         t_start = datetime.datetime.now()
         if flag_log:
-            f_log.write(f"   - NOAH-MP Init:\n")
+            f_log.write("   - NOAH-MP Init:\n")
         self.initialize_noahmp(flag_log, f_log)
         if flag_log:
             f_log.write(
@@ -58,7 +57,7 @@ class HydroBlocks:
         print("Initializing subsurface module", flush=True)
         t_start = datetime.datetime.now()
         if flag_log:
-            f_log.write(f"   - Subsurface Init:\n")
+            f_log.write("   - Subsurface Init:\n")
         self.initialize_subsurface()
         if flag_log:
             f_log.write("     Subsurface Init Overall: "
@@ -72,7 +71,7 @@ class HydroBlocks:
         # Other metrics
         t_start = datetime.datetime.now()
         if flag_log:
-            f_log.write(f"   - Other Metrics Init:\n")
+            f_log.write("   - Other Metrics Init:\n")
         self.dE = 0.0
         self.r = 0.0
         self.dr = 0.0
@@ -95,7 +94,7 @@ class HydroBlocks:
         # Restart from initial conditions?
         t_start = datetime.datetime.now()
         if flag_log:
-            f_log.write(f"   - Restart:\n")
+            f_log.write("   - Restart:\n")
         self.restart()
         if flag_log:
             f_log.write("     Restart Overall: "
@@ -1560,8 +1559,13 @@ class HydroBlocks:
                 #     metadata[var]['dims'],
                 #     least_significant_digit=metadata[var]['precision'])  # ,
                 # compression="zstd")  # ,zlib=True)
-                ncvar = ncutil.create_netcdf_variable(grp, var, 'f4', metadata[var]['dims'], 
-                                                       least_significant_digit=metadata[var]['precision'], compress=True)
+                ncvar = ncutil.create_netcdf_variable(
+                    grp,
+                    var,
+                    'f4',
+                    metadata[var]['dims'],
+                    least_significant_digit=metadata[var]['precision'],
+                    compress=True)
             except KeyError as e:
                 print(f'\nVariable {var} not found in metadata')
                 print(metadata.keys(), '\n')
